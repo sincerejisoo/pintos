@@ -622,4 +622,5 @@ void thread_wake(int64_t ticks){
   }
 
   intr_set_level(_intr_lv);
+  /*thest*/
 }
