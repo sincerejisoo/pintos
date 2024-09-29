@@ -28,6 +28,10 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+/*List of Sleeping Thread*/
+static struct list sleep_list;
+
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -92,6 +96,8 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+
+  list_init (&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -582,3 +588,38 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+void thread_sleep (int64_t ticks){
+  struct thread *this;
+  enum intr_level _intr_lv;
+  _intr_lv = intr_disable();
+  this = thread_current();
+  ASSERT(this != idle_thread);
+  this->thread_wake_tick = ticks;
+  list_insert_ordered(&sleep_list, &this->elem, thread_cmp_tick, NULL);
+  thread_block();
+  intr_set_level(_intr_lv);
+}
+
+bool thread_cmp_tick(const struct list_elem *e1, const struct list_elem *e2, void *aux UNUSED){
+  struct thread *t1 = list_entry(e1, struct thread, elem);
+  struct thread *t2 = list_entry(e2, struct thread, elem);
+  return t1->thread_wake_tick < t2->thread_wake_tick;
+}
+
+void thread_wake(int64_t ticks){
+  enum intr_level _intr_lv;
+  _intr_lv = intr_disable();
+  
+  struct list_elem *it = list_begin(&sleep_list);
+  while(it != list_end(&sleep_list)){
+    struct thread *this = list_entry(it, struct thread, elem);
+    if (this->thread_wake_tick < ticks){
+      it = list_remove(it);
+      thread_unblock(this);
+    }
+    else break;
+  }
+
+  intr_set_level(_intr_lv);
+}
