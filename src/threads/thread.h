@@ -145,5 +145,6 @@ bool thread_cmp_tick(const struct list_elem *t1, const struct list_elem *t2, voi
 void thread_wake(int64_t ticks);
 
 bool thread_cmp_priority(const struct list_elem *e1, const struct list_elem *e2, void *aux UNUSED);
+void thread_swap();
 
 #endif /* threads/thread.h */
