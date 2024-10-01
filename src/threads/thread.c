@@ -246,6 +246,7 @@ thread_unblock (struct thread *t)
   ASSERT (t->status == THREAD_BLOCKED);
   list_insert_ordered(&ready_list, &t->elem, thread_cmp_priority, NULL);
   t->status = THREAD_READY;
+  //thread_swap();
   intr_set_level (old_level);
 }
 
@@ -342,7 +343,16 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  struct thread *this = thread_current();
+  this->priority_ori = new_priority;
+  this->priority = new_priority;
+  struct list *_donors = &(this->donors);
+  if (!list_empty(_donors)){
+    struct thread *donors_front = list_entry(list_front(_donors), struct thread, don_elem);
+    if (this->priority < donors_front->priority) this->priority = donors_front->priority;
+  }
+  else this->priority = this->priority_ori;
+  //thread_donate_priority();
   thread_swap();
 }
 
@@ -474,6 +484,9 @@ init_thread (struct thread *t, const char *name, int priority)
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
+  t->waiting_lock = NULL;
+  t->priority_ori = t->priority;
+  list_init(&(t->donors));
   intr_set_level (old_level);
 }
 
@@ -616,7 +629,7 @@ void thread_wake(int64_t ticks){
   struct list_elem *it = list_begin(&sleep_list);
   while(it != list_end(&sleep_list)){
     struct thread *this = list_entry(it, struct thread, elem);
-    if (this->thread_wake_tick < ticks){
+    if (this->thread_wake_tick <= ticks){
       it = list_remove(it);
       thread_unblock(this);
     }
@@ -639,4 +652,21 @@ void thread_swap(){
   struct thread *this = thread_current();
   struct thread *high = list_entry(list_front(&ready_list), struct thread, elem);
   if (this->priority < high->priority) thread_yield();
+}
+
+bool thread_cmp_don_priority(const struct list_elem *e1, const struct list_elem *e2, void *aux UNUSED){
+  struct thread *t1 = list_entry(e1, struct thread, don_elem);
+  struct thread *t2 = list_entry(e2, struct thread, don_elem);
+  return t1->priority > t2->priority;
+}
+
+void thread_donate_priority(){
+  struct thread *this = thread_current();
+  struct thread *lock_holder;
+  for (int i = 0; i < 10; i++){
+    if (this->waiting_lock == NULL) return;
+    lock_holder = this->waiting_lock->holder;
+    if (this->priority > lock_holder->priority) lock_holder->priority = this->priority;
+    this = lock_holder;
+  }
 }

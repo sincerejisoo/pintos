@@ -102,6 +102,10 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
 
     int64_t thread_wake_tick;
+    int priority_ori; // original priority
+    struct list donors; //priority donor
+    struct list_elem don_elem;
+    struct lock *waiting_lock;   
   };
 
 /* If false (default), use round-robin scheduler.
@@ -146,5 +150,8 @@ void thread_wake(int64_t ticks);
 
 bool thread_cmp_priority(const struct list_elem *e1, const struct list_elem *e2, void *aux UNUSED);
 void thread_swap();
+
+bool thread_cmp_don_priority(const struct list_elem *e1, const struct list_elem *e2, void *aux UNUSED);
+void thread_donate_priority();
 
 #endif /* threads/thread.h */
