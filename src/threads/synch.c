@@ -259,9 +259,15 @@ lock_release (struct lock *lock)
   this->priority = this->priority_ori;
 
   struct list *_donors = &(this->donors);
-  //struct thread *donors_front = list_entry(list_front(&_donors), struct thread, don_elem);
-  struct thread *donors_front = list_entry(list_min(_donors, thread_cmp_don_priority, NULL), struct thread, don_elem);
-  if (this->priority < donors_front->priority) this->priority = donors_front->priority;
+  struct thread *donors_front;
+  
+  if(!list_empty(_donors)){
+    donors_front = list_entry(list_front(_donors), struct thread, don_elem);
+    if (this->priority < donors_front->priority) this->priority = donors_front->priority;
+  }
+  //struct thread *donors_front = list_entry(list_min(_donors, thread_cmp_don_priority, NULL), struct thread, don_elem);
+  //msg("Test %s", donors_front->name);
+  
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }
@@ -387,12 +393,14 @@ void donor_remove(struct lock *lock){
   list_sort(donors, thread_cmp_don_priority, NULL);
 
   if(list_empty(donors)) return;
-  don_elem = list_front(donors);
+  don_elem = list_head(donors);
   while(don_elem != list_end(donors)){
     don_thread = list_entry(don_elem, struct thread, don_elem);
+    //msg("current thread name: %s", don_thread->name);
     if (don_thread->waiting_lock == lock) don_elem = list_remove(&don_thread->don_elem);
     else don_elem = list_next(don_elem);
   }
+  //list_sort(donors, thread_cmp_don_priority, NULL);
   return;
 }
 
