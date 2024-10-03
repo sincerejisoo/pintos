@@ -211,16 +211,7 @@ lock_acquire (struct lock *lock)
   this->waiting_lock = NULL;
   lock->holder = thread_current ();
 }
-/*void
-lock_acquire (struct lock *lock)
-{
-  ASSERT (lock != NULL);
-  ASSERT (!intr_context ());
-  ASSERT (!lock_held_by_current_thread (lock));
 
-  sema_down (&lock->semaphore);
-  lock->holder = thread_current ();
-}*/
 
 /* Tries to acquires LOCK and returns true if successful or false
    on failure.  The lock must not already be held by the current
@@ -265,21 +256,10 @@ lock_release (struct lock *lock)
     donors_front = list_entry(list_front(_donors), struct thread, don_elem);
     if (this->priority < donors_front->priority) this->priority = donors_front->priority;
   }
-  //struct thread *donors_front = list_entry(list_min(_donors, thread_cmp_don_priority, NULL), struct thread, don_elem);
-  //msg("Test %s", donors_front->name);
   
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }
-/*void
-lock_release (struct lock *lock)
-{
-  ASSERT (lock != NULL);
-  ASSERT (lock_held_by_current_thread (lock));
-
-  lock->holder = NULL;
-  sema_up (&lock->semaphore);
-}*/
 
 /* Returns true if the current thread holds LOCK, false
    otherwise.  (Note that testing whether some other thread holds
