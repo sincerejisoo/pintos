@@ -636,7 +636,6 @@ void thread_wake(int64_t ticks){
   }
 
   intr_set_level(_intr_lv);
-  /*test*/
 }
 
 bool thread_cmp_priority(const struct list_elem *e1, const struct list_elem *e2, void *aux UNUSED){
