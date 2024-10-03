@@ -210,10 +210,6 @@ lock_acquire (struct lock *lock)
   this->waiting_lock = NULL;
   lock->holder = thread_current ();
 }
-<<<<<<< HEAD
-
-=======
->>>>>>> 0b36da7ea253c6c456f12449171c0be0b6882fcd
 
 /* Tries to acquires LOCK and returns true if successful or false
    on failure.  The lock must not already be held by the current
@@ -252,7 +248,6 @@ lock_release (struct lock *lock)
   this->priority = this->priority_ori;
 
   struct list *_donors = &(this->donors);
-<<<<<<< HEAD
   struct thread *donors_front;
   
   if(!list_empty(_donors)){
@@ -260,13 +255,6 @@ lock_release (struct lock *lock)
     if (this->priority < donors_front->priority) this->priority = donors_front->priority;
   }
   
-=======
-  if(!list_empty(_donors)){
-     struct thread *donors_front = list_entry(list_min(_donors, thread_cmp_don_priority, NULL), struct thread, don_elem);
-    if (this->priority < donors_front->priority) this->priority = donors_front->priority;
-  }
-
->>>>>>> 0b36da7ea253c6c456f12449171c0be0b6882fcd
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }

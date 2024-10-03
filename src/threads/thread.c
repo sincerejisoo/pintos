@@ -631,6 +631,7 @@ void thread_wake(int64_t ticks){
     if (this->thread_wake_tick <= ticks){
       it = list_remove(it);
       thread_unblock(this);
+      thread_swap();
     }
     else break;
   }
