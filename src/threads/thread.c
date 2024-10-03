@@ -246,7 +246,6 @@ thread_unblock (struct thread *t)
   ASSERT (t->status == THREAD_BLOCKED);
   list_insert_ordered(&ready_list, &t->elem, thread_cmp_priority, NULL);
   t->status = THREAD_READY;
-  //thread_swap();
   intr_set_level (old_level);
 }
 
@@ -632,12 +631,12 @@ void thread_wake(int64_t ticks){
     if (this->thread_wake_tick <= ticks){
       it = list_remove(it);
       thread_unblock(this);
+      thread_swap();
     }
     else break;
   }
 
   intr_set_level(_intr_lv);
-  /*test*/
 }
 
 bool thread_cmp_priority(const struct list_elem *e1, const struct list_elem *e2, void *aux UNUSED){
