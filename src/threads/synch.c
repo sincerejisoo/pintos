@@ -68,7 +68,7 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_insert_ordered(&sema->waiters, &thread_current ()->elem, thread_cmp_priority, NULL);
+      list_push_back(&sema->waiters,  &thread_current ()->elem);
       thread_block ();
     }
   sema->value--;
@@ -373,11 +373,9 @@ void donor_remove(struct lock *lock){
   don_elem = list_head(donors);
   while(don_elem != list_end(donors)){
     don_thread = list_entry(don_elem, struct thread, don_elem);
-    //msg("current thread name: %s", don_thread->name);
     if (don_thread->waiting_lock == lock) don_elem = list_remove(&don_thread->don_elem);
     else don_elem = list_next(don_elem);
   }
-  //list_sort(donors, thread_cmp_don_priority, NULL);
   return;
 }
 

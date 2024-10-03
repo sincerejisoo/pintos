@@ -346,12 +346,12 @@ thread_set_priority (int new_priority)
   this->priority_ori = new_priority;
   this->priority = new_priority;
   struct list *_donors = &(this->donors);
+  
   if (!list_empty(_donors)){
     struct thread *donors_front = list_entry(list_front(_donors), struct thread, don_elem);
     if (this->priority < donors_front->priority) this->priority = donors_front->priority;
   }
-  else this->priority = this->priority_ori;
-  //thread_donate_priority();
+  
   thread_swap();
 }
 
@@ -512,8 +512,11 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
+  else{
+    list_sort(&ready_list, thread_cmp_priority, NULL);
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  }
+    
 }
 
 /* Completes a thread switch by activating the new thread's page
