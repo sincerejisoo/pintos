@@ -56,7 +56,7 @@ timer_calibrate (void)
       loops_per_tick <<= 1;
       ASSERT (loops_per_tick != 0);
     }
-
+  
   /* Refine the next 8 bits of loops_per_tick. */
   high_bit = loops_per_tick;
   for (test_bit = high_bit >> 1; test_bit != high_bit >> 10; test_bit >>= 1)
@@ -172,7 +172,39 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+  //msg("timer_ticks: %d", ticks);
   thread_wake(ticks);
+
+  //mlfqs scheduler
+  
+  if(thread_mlfqs){
+    //enum intr_level _intr_lv;
+    //_intr_lv = intr_disable();
+    
+    struct thread *this=thread_current();
+    this->recent_cpu=this->recent_cpu+16384;
+    
+    
+    
+    if(timer_ticks()%TIMER_FREQ==0){
+      //set_ready_threads();
+      set_load_avg();
+      set_recent_cpu();
+      //msg("current running thread name and priority: %s, %d", 
+      //thread_current()->name, thread_current()->priority);
+
+      //get_other_priority();
+    }
+    
+    if(timer_ticks()%TIME_SLICE==0)
+      set_mlfqs_priorty();
+    
+    //intr_set_level(_intr_lv);
+    
+    
+  }
+  //////////
+
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

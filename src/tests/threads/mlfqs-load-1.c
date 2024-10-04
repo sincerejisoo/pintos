@@ -26,11 +26,16 @@ test_mlfqs_load_1 (void)
   msg ("spinning for up to 45 seconds, please wait...");
 
   start_time = timer_ticks ();
+  //msg("test: %d", start_time);
   for (;;) 
     {
       load_avg = thread_get_load_avg ();
       ASSERT (load_avg >= 0);
+      //msg("load_avg: %d", load_avg);
       elapsed = timer_elapsed (start_time) / TIMER_FREQ;
+      //if(timer_elapsed(start_time)%(TIMER_FREQ*10)==0)
+        //msg("load_avg: %d, %d", elapsed, load_avg);
+
       if (load_avg > 100)
         fail ("load average is %d.%02d "
               "but should be between 0 and 1 (after %d seconds)",

@@ -105,7 +105,10 @@ struct thread
     int priority_ori; // original priority
     struct list donors; //priority donor
     struct list_elem don_elem;
-    struct lock *waiting_lock;   
+    struct lock *waiting_lock;  
+
+    long long nice;
+    long long recent_cpu; 
   };
 
 /* If false (default), use round-robin scheduler.
@@ -149,9 +152,20 @@ bool thread_cmp_tick(const struct list_elem *t1, const struct list_elem *t2, voi
 void thread_wake(int64_t ticks);
 
 bool thread_cmp_priority(const struct list_elem *e1, const struct list_elem *e2, void *aux UNUSED);
-void thread_swap();
+void thread_swap(void);
 
 bool thread_cmp_don_priority(const struct list_elem *e1, const struct list_elem *e2, void *aux UNUSED);
-void thread_donate_priority();
+void thread_donate_priority(void);
+
+//void set_ready_threads(void);
+void set_load_avg(void);
+long long set_recent_cpu_current(struct thread *this);
+void set_recent_cpu(void);
+int get_mlfqs_priority(struct thread * t);
+
+void set_mlfqs_priorty(void);
+
+//for debug
+int get_other_priority();
 
 #endif /* threads/thread.h */
