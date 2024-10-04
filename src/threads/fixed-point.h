@@ -1,8 +1,14 @@
-#ifndef THREADS_FIXED-POINT_H
-#define THREADS_FIXED-POINT_H
+#ifndef THREADS_FIXED_POINT_H
+#define THREADS_FIXED_POINT_H
 
 #include <stdio.h>
 #include <stdint.h>
+
+long long int_to_fp(long long integer);
+long long fp_to_int_zero(long long fp);
+long long fp_to_int_near(long long fp);
+long long mul_fp(long long fp1, long long fp2);
+long long div_fp(long long fp1, long long fp2);
 
 long long int_to_fp(long long integer){
     return integer*16384;

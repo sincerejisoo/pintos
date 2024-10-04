@@ -157,15 +157,11 @@ void thread_swap(void);
 bool thread_cmp_don_priority(const struct list_elem *e1, const struct list_elem *e2, void *aux UNUSED);
 void thread_donate_priority(void);
 
-//void set_ready_threads(void);
 void set_load_avg(void);
-long long set_recent_cpu_current(struct thread *this);
+void set_recent_cpu_current(struct thread *this);
 void set_recent_cpu(void);
 int get_mlfqs_priority(struct thread * t);
 
 void set_mlfqs_priorty(void);
-
-//for debug
-int get_other_priority();
 
 #endif /* threads/thread.h */

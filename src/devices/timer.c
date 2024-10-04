@@ -172,14 +172,10 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  //msg("timer_ticks: %d", ticks);
   thread_wake(ticks);
 
   //mlfqs scheduler
-  
   if(thread_mlfqs){
-    //enum intr_level _intr_lv;
-    //_intr_lv = intr_disable();
     
     struct thread *this=thread_current();
     this->recent_cpu=this->recent_cpu+16384;
@@ -187,21 +183,12 @@ timer_interrupt (struct intr_frame *args UNUSED)
     
     
     if(timer_ticks()%TIMER_FREQ==0){
-      //set_ready_threads();
       set_load_avg();
       set_recent_cpu();
-      //msg("current running thread name and priority: %s, %d", 
-      //thread_current()->name, thread_current()->priority);
-
-      //get_other_priority();
     }
     
     if(timer_ticks()%TIME_SLICE==0)
-      set_mlfqs_priorty();
-    
-    //intr_set_level(_intr_lv);
-    
-    
+      set_mlfqs_priorty();  
   }
   //////////
 

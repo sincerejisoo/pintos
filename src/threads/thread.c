@@ -216,10 +216,6 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
   thread_swap();
-  //msg("TEST: %s", name);
-  //msg("list size: %d", (int)list_size(&all_list));
-  //msg("ready_list size: %d", (int)list_size(&ready_list));
-  //msg("wait_list size: %d\n", (int)list_size(&sleep_list));
 
   return tid;
 }
@@ -257,7 +253,6 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  //list_push_back(&ready_list, &t->elem);
   list_insert_ordered(&ready_list, &t->elem, thread_cmp_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
@@ -382,17 +377,11 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice) 
 {
-  //enum intr_level _intr_lv;
- // _intr_lv = intr_disable();
   struct thread * this= thread_current();
   this->nice=nice*16384;
   this->priority=get_mlfqs_priority(this);
-  msg("initial thread name and priority: %s, %d, %d, %d", 
-      thread_current()->name, thread_current()->priority, thread_current()->nice, thread_current()->recent_cpu);
-  //msg("TEST ready_list: %d", list_size(&ready_list));
   
   thread_yield();
-  //intr_set_level(_intr_lv);
 }
 
 /* Returns the current thread's nice value. */
@@ -407,9 +396,6 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  //set_ready_threads();
-  //msg("ready_threads: %d", ready_threads);
-  //set_load_avg();
   return fp_to_int_near(load_avg*100);
 }
 
@@ -418,7 +404,6 @@ int
 thread_get_recent_cpu (void) 
 {
   struct thread * this=thread_current();
-  //set_recent_cpu_current(this);
   return fp_to_int_near(this->recent_cpu*100);
 }
 
@@ -706,7 +691,6 @@ bool thread_cmp_priority(const struct list_elem *e1, const struct list_elem *e2,
 void thread_swap(){
   if (thread_current() == idle_thread) return;
   if (list_empty(&ready_list)) return;
-  //list_sort(&ready_list, thread_cmp_priority, NULL);
   struct thread *this = thread_current();
   struct thread *high = list_entry(list_front(&ready_list), struct thread, elem);
   if (this->priority < high->priority) thread_yield();
@@ -728,16 +712,6 @@ void thread_donate_priority(){
     this = lock_holder;
   }
 }
-/*
-void set_ready_threads(){
-  
-  if(thread_current()!=idle_thread)
-    ready_threads=1+list_size(&ready_list);
-  else
-    ready_threads=list_size(&ready_list);
-  //msg("list_size: %d", ready_list);
-}
-*/
 
 void set_load_avg(){
   long long ready_threads;
@@ -747,19 +721,13 @@ void set_load_avg(){
     ready_threads=list_size(&ready_list);
   
   load_avg=mul_fp(16110, load_avg)+273*ready_threads; 
-  //msg("load avgdddddd: %d", load_avg);
-  //msg("list size: %d", list_size(&ready_list));
 }
 
-long long set_recent_cpu_current(struct thread *this){
+void set_recent_cpu_current(struct thread *this){
   long long cur_recent_cpu=this->recent_cpu;
-  //msg("cur_recent: %d", cur_recent_cpu);
   long long cur_nice=this->nice;
-  //msg("nice: %d", cur_nice);
   long long coeff=div_fp(2*load_avg, 2*load_avg+16384);
-  //msg("coeff: %d", coeff);
   long long new_recent_cpu=mul_fp(coeff, cur_recent_cpu)+cur_nice;
-  //msg("new recent %d", new_recent_cpu);
   this->recent_cpu=new_recent_cpu;
 }
 
@@ -779,6 +747,9 @@ int get_mlfqs_priority(struct thread * t){
     priority=0;
   else if(priority>63)
     priority=63;
+  else
+    priority=priority;
+  
   return priority;
 }
 
@@ -787,23 +758,7 @@ void set_mlfqs_priorty(){
   while(it!=list_end(&all_list)){
     struct thread *this = list_entry(it, struct thread, allelem);
     int new_priority=get_mlfqs_priority(this);
-    //msg("name, newpriority, recent, nice: %s, %d, %d %d", this->name, new_priority, this->recent_cpu, this->nice);
     this->priority=new_priority;
     it=list_next(it);
   }
-}
-
-//debuging function
-int get_other_priority(){
-  struct list_elem *it = list_begin(&all_list);
-  while(it!=list_end(&all_list)){
-    struct thread *this = list_entry(it, struct thread, allelem);
-    if(!strcmp(this->name, "load 1"))
-    {
-      //msg("load 1 priority: %d, %d, %d", this->priority, this->nice, this->recent_cpu);
-    }
-      
-    it=list_next(it);
-  }
-  msg("load_avg: %d", load_avg);
 }
