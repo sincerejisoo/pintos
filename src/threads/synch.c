@@ -198,14 +198,16 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-
   struct thread *this = thread_current();
-  if (lock->holder != NULL){
-    this->waiting_lock = lock;
-    list_push_back(&lock->holder->donors, &(this->don_elem));
-    thread_donate_priority();
+  if(!thread_mlfqs){
+     
+    if (lock->holder != NULL){
+      this->waiting_lock = lock;
+      list_push_back(&lock->holder->donors, &(this->don_elem));
+      thread_donate_priority();
+    }
   }
-
+ 
   sema_down (&lock->semaphore);
   this->waiting_lock = NULL;
   lock->holder = thread_current ();
@@ -242,18 +244,22 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
-  donor_remove(lock);
+  if(!thread_mlfqs){
+     donor_remove(lock);
 
-  struct thread *this = thread_current();
-  this->priority = this->priority_ori;
+    struct thread *this = thread_current();
 
-  struct list *_donors = &(this->donors);
-  struct thread *donors_front;
-  
-  if(!list_empty(_donors)){
-    donors_front = list_entry(list_front(_donors), struct thread, don_elem);
-    if (this->priority < donors_front->priority) this->priority = donors_front->priority;
+    this->priority = this->priority_ori;
+
+    struct list *_donors = &(this->donors);
+    struct thread *donors_front;
+
+    if(!list_empty(_donors)){
+      donors_front = list_entry(list_front(_donors), struct thread, don_elem);
+      if (this->priority < donors_front->priority) this->priority = donors_front->priority;
+    }
   }
+ 
   
   lock->holder = NULL;
   sema_up (&lock->semaphore);
