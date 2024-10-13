@@ -178,7 +178,8 @@ timer_interrupt (struct intr_frame *args UNUSED)
   if(thread_mlfqs){
     
     struct thread *this=thread_current();
-    this->recent_cpu=this->recent_cpu+16384;
+    if(strcmp(this->name, "idle"))
+      this->recent_cpu=this->recent_cpu+16384;
     
     
     
