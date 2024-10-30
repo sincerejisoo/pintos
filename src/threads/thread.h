@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -23,6 +24,19 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
+struct pcb
+   {
+      int exit_code;
+      struct file **fd_table;
+      int fd_count;
+      struct file *exe_file;
+
+      struct semaphore sema_wait;
+      struct semaphore sema_load; 
+
+      bool is_loaded;
+   };
 
 /* A kernel thread or user process.
 
@@ -93,10 +107,14 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-#ifdef USERPROG
+//#ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-#endif
+    struct pcb *pcb;
+    struct thread *parent;
+    struct list childs;
+    struct list_elem child_elem;
+//#endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
@@ -163,5 +181,7 @@ void set_recent_cpu(void);
 int get_mlfqs_priority(struct thread * t);
 
 void set_mlfqs_priorty(void);
+
+struct thread *get_child(tid_t child_tid);
 
 #endif /* threads/thread.h */

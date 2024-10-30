@@ -213,6 +213,31 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+//#ifdef USERPROG
+  t->parent = thread_current ();
+
+  t->pcb = palloc_get_page (0);
+
+  if (t->pcb == NULL) return TID_ERROR;
+
+  t->pcb->fd_table = palloc_get_page (PAL_ZERO);
+
+  if (t->pcb->fd_table == NULL) {
+    palloc_free_page (t->pcb);
+    return TID_ERROR;
+  }
+
+  t->pcb->fd_count = 2;
+  t->pcb->exit_code = -1;
+  t->pcb->is_loaded = false;
+  t->pcb->exe_file = NULL;
+
+  sema_init (&(t->pcb->sema_wait), 0);
+  sema_init (&(t->pcb->sema_load), 0);
+
+  list_push_back (&(t->parent->childs), &(t->child_elem));
+//#endif
+
   /* Add to run queue. */
   thread_unblock (t);
   thread_swap();
@@ -526,6 +551,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->waiting_lock = NULL;
   t->priority_ori = t->priority;
   list_init(&(t->donors));
+  
+  list_init(&(t->childs));
 
   intr_set_level (old_level);
 }
@@ -761,4 +788,19 @@ void set_mlfqs_priorty(){
     this->priority=new_priority;
     it=list_next(it);
   }
+}
+
+struct thread *get_child(tid_t child_tid) {
+  struct thread *this = thread_current();
+  struct thread *child;
+  struct list *childs = &(this->childs);
+  struct list_elem *it = list_begin(childs);
+  while(it != list_end(childs)){
+    child = list_entry(it, struct thread, child_elem);
+    if (child->tid == child_tid) return child;
+    else {
+      it = list_next(it);
+    }
+  }  
+  return NULL;
 }

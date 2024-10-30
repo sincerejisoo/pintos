@@ -28,7 +28,7 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *fn_copy;
+  char *fn_copy, *parsed_fn;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
@@ -38,10 +38,27 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  parsed_fn = palloc_get_page (0);
+  if (parsed_fn == NULL){
+    palloc_free_page(fn_copy);
+    return TID_ERROR;
+  }
+    
+  strlcpy (parsed_fn, file_name, PGSIZE);
+
+  char *ptr_fn;
+  parsed_fn = strtok_r(parsed_fn, " ", &ptr_fn);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
+  tid = thread_create (parsed_fn, PRI_DEFAULT, start_process, fn_copy);
+  if (tid == TID_ERROR) {
     palloc_free_page (fn_copy); 
+  }
+  else {
+    sema_down(&(get_child(tid)->pcb->sema_load));
+  }
+  
+  palloc_free_page(parsed_fn);
   return tid;
 }
 
@@ -53,14 +70,28 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-
+  
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
 
+  char **argv = palloc_get_page(0);
+  if (argv == NULL) thread_exit();
+  int argc = parsing_argument(file_name, argv);
+  success = load (argv[0], &if_.eip, &if_.esp);
+
+  if (success){
+    //thread_current()->pcb->is_loaded = true;
+    process_init_stack(argc, argv, &if_.esp);
+  }
+
+  /*debug code*/
+  //hex_dump(if_.esp, if_.esp, PHYS_BASE - (uint32_t)if_.esp, true);
+
+  palloc_free_page(argv);
+  sema_up(&(thread_current()->pcb->sema_load));
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
@@ -86,9 +117,25 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
+  for (int i = 0; i < 2147483000; i++){
+
+  }
   return -1;
+  struct thread *child = get_child(child_tid);
+  int exit_code;
+
+
+  if(child == NULL) return -1;
+  if(child->pcb == NULL || child->pcb->is_loaded == false) return -1;
+  sema_down(&(child->pcb->sema_wait));
+  exit_code = child->pcb->exit_code;
+
+  list_remove(&(child->child_elem));
+  palloc_free_page(child->pcb);
+  palloc_free_page(child);
+  return exit_code;
 }
 
 /* Free the current process's resources. */
@@ -100,6 +147,10 @@ process_exit (void)
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
+  struct pcb *child_pcb = cur->pcb;
+
+  /* fd table 할당 해제도 구현하여야 한다. */
+
   pd = cur->pagedir;
   if (pd != NULL) 
     {
@@ -114,6 +165,7 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+    sema_up(&(child_pcb->sema_wait));
 }
 
 /* Sets up the CPU for running user code in the current
@@ -462,4 +514,49 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+int parsing_argument(char *file_name, char **argv){
+  char *token, *save_ptr;
+  int argc = 0;
+  for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)){
+    argv[argc] = token;
+    argc++;
+  }
+  return argc;
+}
+
+void process_init_stack(int argc, char **argv, void **esp){
+  int argument_len, argv_len = 0;
+  for (int i = argc - 1; i >= 0; i--){
+    argument_len = strlen(argv[i]) + 1;
+    *esp -= argument_len;
+    strlcpy(*esp, argv[i], argument_len);
+    argv[i] = *esp;
+    argv_len += argument_len;
+  }
+
+  if (argv_len % 4){  //stack align to 4
+    int word_align_bytes = 4 - (argv_len % 4);
+    for(int i = 0; i < word_align_bytes; i++){
+      *esp -= 1;
+      **(uint8_t**)esp = 0;
+    }
+  }
+
+  *esp -= 4;
+  **(uint32_t**)esp = 0;
+
+  for (int i = argc - 1; i >= 0; i--){ //argv[i]
+    *esp -= 4;
+    **(uint32_t**)esp = argv[i];
+  }
+
+  *esp -= 4;
+  **(uint32_t**)esp = *esp + 4; //argv
+  *esp -= 4;
+  **(uint32_t**)esp = argc; //argc
+
+  *esp -= 4;
+  **(uint32_t**)esp = 0; //return address
 }
