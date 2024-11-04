@@ -49,7 +49,12 @@ syscall_handler (struct intr_frame *f)
       get_argument(f->esp, args, 1);
       f->eax = sys_exec(args[0]);
       break;
+
     case SYS_WAIT:
+      get_argument(f->esp, args, 1);
+      f->eax = sys_wait(args[0]);
+      break;
+
     case SYS_CREATE:
       get_argument(f->esp, args, 2);
       f->eax = sys_create((const char *)args[0], (unsigned) args[1]);
@@ -109,10 +114,19 @@ void sys_exit(int status){
 }
 
 pid_t sys_exec(const char *file){
-  sys_exit(-1);
+  pid_t pid = process_execute(file);
+  
+  if(pid == -1){
+    return -1;
+  }
+  struct pcb *child_pcb = get_child(pid)->pcb;
+  if (!child_pcb->is_loaded) return -1;
+  //printf("%d sys_exec called\n", pid);
+  return pid;
 }
+
 int sys_wait(pid_t pid){
-  sys_exit(-1);
+  return process_wait(pid);
 }
 
 bool sys_create(const char *file, unsigned initial_size){
@@ -144,6 +158,10 @@ int sys_open(const char *file){
   this->pcb->fd_table[this->pcb->fd_count] = _file;
   this->pcb->fd_count++;
   
+  if(strcmp(thread_current()->name, file) == false){
+    file_deny_write(_file);
+  }
+
   lock_release(&file_rw);
   return (this->pcb->fd_count) - 1;
 }
@@ -240,15 +258,15 @@ unsigned sys_tell(int fd){
 }
 void sys_close(int fd){
   struct thread *this = thread_current();
-  lock_acquire(&file_rw);
+  //lock_acquire(&file_rw);
   int fd_count = this->pcb->fd_count;
   if (fd >= fd_count || fd < 2) {
-    lock_release(&file_rw);
+    //lock_release(&file_rw);
     return;
   }
   struct file *file = this->pcb->fd_table[fd];
   if (file == NULL) {
-    lock_release(&file_rw);
+    //lock_release(&file_rw);
     return;
   }
   file_close(file);
@@ -258,5 +276,5 @@ void sys_close(int fd){
   }
   this->pcb->fd_count--;
   this->pcb->fd_table[fd_count] = NULL;
-  lock_release(&file_rw);
+  //lock_release(&file_rw);
 }

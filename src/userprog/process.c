@@ -51,13 +51,13 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (parsed_fn, PRI_DEFAULT, start_process, fn_copy);
+  //printf("%d process_execute called\n", tid);
   if (tid == TID_ERROR) {
     palloc_free_page (fn_copy); 
   }
   else {
     sema_down(&(get_child(tid)->pcb->sema_load));
   }
-  
   palloc_free_page(parsed_fn);
   return tid;
 }
@@ -91,7 +91,9 @@ start_process (void *file_name_)
   //hex_dump(if_.esp, if_.esp, PHYS_BASE - (uint32_t)if_.esp, true);
 
   palloc_free_page(argv);
+  thread_current()->pcb->is_loaded = success;
   sema_up(&(thread_current()->pcb->sema_load));
+  
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
@@ -119,10 +121,10 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid) 
 {
-  for (int i = 0; i < 2147483000; i++){
+  /*for (int i = 0; i < 2147483000; i++){
 
   }
-  return -1;
+  return -1;*/
   struct thread *child = get_child(child_tid);
   int exit_code;
 
@@ -133,8 +135,9 @@ process_wait (tid_t child_tid)
   exit_code = child->pcb->exit_code;
 
   list_remove(&(child->child_elem));
+  sema_up(&(child->pcb->sema_exit));
   palloc_free_page(child->pcb);
-  palloc_free_page(child);
+  //palloc_free_page(child);
   return exit_code;
 }
 
@@ -148,9 +151,14 @@ process_exit (void)
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   struct pcb *child_pcb = cur->pcb;
+  //sema_up(&(child_pcb->sema_wait));
 
-  /* fd table 할당 해제도 구현하여야 한다. */
-
+  for(int i = 2; i < child_pcb->fd_count; i++){
+    //sys_close(i);
+    file_close(child_pcb->fd_table[i]);
+  }
+  palloc_free_page(child_pcb->fd_table);
+  file_close(child_pcb->exe_file);
   pd = cur->pagedir;
   if (pd != NULL) 
     {
@@ -165,7 +173,7 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-    sema_up(&(child_pcb->sema_wait));
+    
 }
 
 /* Sets up the CPU for running user code in the current
@@ -281,6 +289,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
 
+  t->pcb->exe_file = file;
+
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -364,7 +374,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  //file_close (file);
   return success;
 }
 

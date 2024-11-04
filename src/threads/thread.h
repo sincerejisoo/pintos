@@ -34,6 +34,7 @@ struct pcb
 
       struct semaphore sema_wait;
       struct semaphore sema_load; 
+      struct semaphore sema_exit;
 
       bool is_loaded;
    };

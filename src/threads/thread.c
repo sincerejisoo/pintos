@@ -234,6 +234,7 @@ thread_create (const char *name, int priority,
 
   sema_init (&(t->pcb->sema_wait), 0);
   sema_init (&(t->pcb->sema_load), 0);
+  sema_init (&(t->pcb->sema_exit), 0);
 
   list_push_back (&(t->parent->childs), &(t->child_elem));
 //#endif
@@ -326,6 +327,19 @@ thread_exit (void)
 #ifdef USERPROG
   process_exit ();
 #endif
+
+  struct thread *this = thread_current();
+  struct list_elem *it = list_begin(&(this->childs));
+  struct thread *child;
+  sema_up(&(this->pcb->sema_wait));
+
+  while(it != list_end(&(this->childs))){
+    child = list_entry(it, struct thread, child_elem);
+    sema_up(&(child->pcb->sema_exit));
+    it = list_next(it);
+  }
+  sema_down(&(this->pcb->sema_exit));
+
 
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
