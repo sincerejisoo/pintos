@@ -37,6 +37,7 @@ struct pcb
       struct semaphore sema_exit;
 
       bool is_loaded;
+      bool is_exited;
    };
 
 /* A kernel thread or user process.

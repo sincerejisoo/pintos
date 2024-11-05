@@ -230,6 +230,7 @@ thread_create (const char *name, int priority,
   t->pcb->fd_count = 2;
   t->pcb->exit_code = -1;
   t->pcb->is_loaded = false;
+  t->pcb->is_exited = false;
   t->pcb->exe_file = NULL;
 
   sema_init (&(t->pcb->sema_wait), 0);
@@ -336,11 +337,22 @@ thread_exit (void)
   while(it != list_end(&(this->childs))){
     child = list_entry(it, struct thread, child_elem);
     sema_up(&(child->pcb->sema_exit));
+    //printf("%d destroyed\n", child->tid);
+    //palloc_free_page(child->pcb);
+    //palloc_free_page(child);
     it = list_next(it);
   }
+  //printf("Child %d is waiting parent %d to allow destroy.\n", thread_current()->tid, thread_current()->parent->tid);
+  //thread_set_priority(PRI_DEFAULT + 1);
   sema_down(&(this->pcb->sema_exit));
-
-
+  //printf("Child %d received parent %d to allow destroy.\n", thread_current()->tid, thread_current()->parent->tid);
+  for(int i = 2; i < this->pcb->fd_count; i++){
+    //sys_close(i);
+    file_close(this->pcb->fd_table[i]);
+  }
+  palloc_free_page(this->pcb->fd_table);
+  file_close(this->pcb->exe_file);
+  palloc_free_page(this->pcb);
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
@@ -643,6 +655,7 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
     {
       ASSERT (prev != cur);
+      //printf("%d thread freed\n", prev->tid);
       palloc_free_page (prev);
     }
 }

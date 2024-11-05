@@ -131,12 +131,15 @@ process_wait (tid_t child_tid)
 
   if(child == NULL) return -1;
   if(child->pcb == NULL || child->pcb->is_loaded == false) return -1;
-  sema_down(&(child->pcb->sema_wait));
+  //printf("Parent %d waiting for child %d to exit.\n", thread_current()->tid, child_tid);
+  //enum intr_level old_level = intr_disable();
+  if(!child->pcb->is_exited) sema_down(&(child->pcb->sema_wait));
+  //intr_set_level(old_level);
   exit_code = child->pcb->exit_code;
-
-  list_remove(&(child->child_elem));
+  //printf("Parent %d allowed child %d to destroy.\n", thread_current()->tid, child_tid);
   sema_up(&(child->pcb->sema_exit));
-  palloc_free_page(child->pcb);
+  list_remove(&(child->child_elem));
+  //palloc_free_page(child->pcb);
   //palloc_free_page(child);
   return exit_code;
 }
@@ -151,14 +154,17 @@ process_exit (void)
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   struct pcb *child_pcb = cur->pcb;
-  //sema_up(&(child_pcb->sema_wait));
-
-  for(int i = 2; i < child_pcb->fd_count; i++){
+  if (cur->pcb->is_exited) return;
+  sema_up(&(child_pcb->sema_wait));
+  cur->pcb->is_exited = true;
+  //printf("Thread %d exiting, signaling parent %d\n", cur->tid, cur->parent->tid);
+  /*for(int i = 2; i < child_pcb->fd_count; i++){
     //sys_close(i);
     file_close(child_pcb->fd_table[i]);
   }
   palloc_free_page(child_pcb->fd_table);
-  file_close(child_pcb->exe_file);
+  file_close(child_pcb->exe_file);*/
+  //printf("%d process_exit called\n", cur->tid);
   pd = cur->pagedir;
   if (pd != NULL) 
     {
