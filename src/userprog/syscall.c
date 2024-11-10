@@ -157,12 +157,9 @@ int sys_open(const char *file){
   this->pcb->fd_table[this->pcb->fd_count] = _file;
   this->pcb->fd_count++;
   
-  if(strcmp(thread_current()->name, file) == false){
-    file_deny_write(_file);
-  }
-
   lock_release(&file_rw);
   return (this->pcb->fd_count) - 1;
+  
 }
 
 int sys_filesize(int fd){
@@ -271,5 +268,4 @@ void sys_close(int fd){
   }
   this->pcb->fd_count--;
   this->pcb->fd_table[fd_count] = NULL;
-  //lock_release(&file_rw);
 }

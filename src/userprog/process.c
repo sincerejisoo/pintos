@@ -144,8 +144,8 @@ process_exit (void)
      to the kernel-only page directory. */
   struct pcb *child_pcb = cur->pcb;
   if (cur->pcb->is_exited) return;
-  sema_up(&(child_pcb->sema_wait));
   cur->pcb->is_exited = true;
+  file_close(child_pcb->exe_file);
 
   pd = cur->pagedir;
   if (pd != NULL) 
@@ -278,6 +278,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   t->pcb->exe_file = file;
+  file_deny_write(file);
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr

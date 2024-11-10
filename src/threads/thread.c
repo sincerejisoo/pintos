@@ -347,7 +347,6 @@ thread_exit (void)
     file_close(this->pcb->fd_table[i]);
   }
   palloc_free_page(this->pcb->fd_table);
-  file_close(this->pcb->exe_file);
   palloc_free_page(this->pcb);
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
