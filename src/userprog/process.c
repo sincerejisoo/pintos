@@ -51,7 +51,6 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (parsed_fn, PRI_DEFAULT, start_process, fn_copy);
-  //printf("%d process_execute called\n", tid);
   if (tid == TID_ERROR) {
     palloc_free_page (fn_copy); 
   }
@@ -83,12 +82,8 @@ start_process (void *file_name_)
   success = load (argv[0], &if_.eip, &if_.esp);
 
   if (success){
-    //thread_current()->pcb->is_loaded = true;
     process_init_stack(argc, argv, &if_.esp);
   }
-
-  /*debug code*/
-  //hex_dump(if_.esp, if_.esp, PHYS_BASE - (uint32_t)if_.esp, true);
 
   palloc_free_page(argv);
   thread_current()->pcb->is_loaded = success;
@@ -121,26 +116,20 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid) 
 {
-  /*for (int i = 0; i < 2147483000; i++){
-
-  }
-  return -1;*/
   struct thread *child = get_child(child_tid);
   int exit_code;
 
 
   if(child == NULL) return -1;
   if(child->pcb == NULL || child->pcb->is_loaded == false) return -1;
-  //printf("Parent %d waiting for child %d to exit.\n", thread_current()->tid, child_tid);
-  //enum intr_level old_level = intr_disable();
+
   if(!child->pcb->is_exited) sema_down(&(child->pcb->sema_wait));
-  //intr_set_level(old_level);
+
   exit_code = child->pcb->exit_code;
-  //printf("Parent %d allowed child %d to destroy.\n", thread_current()->tid, child_tid);
+
   sema_up(&(child->pcb->sema_exit));
   list_remove(&(child->child_elem));
-  //palloc_free_page(child->pcb);
-  //palloc_free_page(child);
+
   return exit_code;
 }
 
@@ -157,14 +146,7 @@ process_exit (void)
   if (cur->pcb->is_exited) return;
   sema_up(&(child_pcb->sema_wait));
   cur->pcb->is_exited = true;
-  //printf("Thread %d exiting, signaling parent %d\n", cur->tid, cur->parent->tid);
-  /*for(int i = 2; i < child_pcb->fd_count; i++){
-    //sys_close(i);
-    file_close(child_pcb->fd_table[i]);
-  }
-  palloc_free_page(child_pcb->fd_table);
-  file_close(child_pcb->exe_file);*/
-  //printf("%d process_exit called\n", cur->tid);
+
   pd = cur->pagedir;
   if (pd != NULL) 
     {

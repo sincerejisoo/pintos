@@ -72,7 +72,7 @@ syscall_handler (struct intr_frame *f)
 
     case SYS_FILESIZE:
       get_argument(f->esp, args, 1);
-      f->eax = sys_filesize((const char *)args[0]);
+      f->eax = sys_filesize((int)args[0]);
       break;
 
     case SYS_READ:
@@ -121,7 +121,6 @@ pid_t sys_exec(const char *file){
   }
   struct pcb *child_pcb = get_child(pid)->pcb;
   if (!child_pcb->is_loaded) return -1;
-  //printf("%d sys_exec called\n", pid);
   return pid;
 }
 
@@ -239,7 +238,6 @@ int sys_write(int fd, const void *buffer, unsigned size){
     }
     
     int result = file_write(file, buffer, size);
-    //printf("%d %d", size, result);
     lock_release(&file_rw);
     return result;
   }
@@ -258,15 +256,12 @@ unsigned sys_tell(int fd){
 }
 void sys_close(int fd){
   struct thread *this = thread_current();
-  //lock_acquire(&file_rw);
   int fd_count = this->pcb->fd_count;
   if (fd >= fd_count || fd < 2) {
-    //lock_release(&file_rw);
     return;
   }
   struct file *file = this->pcb->fd_table[fd];
   if (file == NULL) {
-    //lock_release(&file_rw);
     return;
   }
   file_close(file);

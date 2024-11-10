@@ -337,17 +337,13 @@ thread_exit (void)
   while(it != list_end(&(this->childs))){
     child = list_entry(it, struct thread, child_elem);
     sema_up(&(child->pcb->sema_exit));
-    //printf("%d destroyed\n", child->tid);
-    //palloc_free_page(child->pcb);
-    //palloc_free_page(child);
+
     it = list_next(it);
   }
-  //printf("Child %d is waiting parent %d to allow destroy.\n", thread_current()->tid, thread_current()->parent->tid);
-  //thread_set_priority(PRI_DEFAULT + 1);
+
   sema_down(&(this->pcb->sema_exit));
-  //printf("Child %d received parent %d to allow destroy.\n", thread_current()->tid, thread_current()->parent->tid);
+
   for(int i = 2; i < this->pcb->fd_count; i++){
-    //sys_close(i);
     file_close(this->pcb->fd_table[i]);
   }
   palloc_free_page(this->pcb->fd_table);
