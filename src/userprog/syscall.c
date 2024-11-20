@@ -9,6 +9,9 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 
+#include "vm/page.h"
+#include "vm/frame.h"
+
 static void syscall_handler (struct intr_frame *);
 struct lock file_rw;
 
@@ -98,6 +101,16 @@ syscall_handler (struct intr_frame *f)
     case SYS_CLOSE:
       get_argument(f->esp, args, 1);
       sys_close(args[0]);
+      break;
+
+    case SYS_MMAP:
+      get_argument(f->esp, args, 2);
+      f->eax = sys_mmap(args[0], args[1]);
+      break;
+
+    case SYS_MUNMAP:
+      get_argument(f->esp, args, 1);
+      sys_munmap(args[0]);
       break;
   }
 }
@@ -268,4 +281,74 @@ void sys_close(int fd){
   }
   this->pcb->fd_count--;
   this->pcb->fd_table[fd_count] = NULL;
+}
+
+mapid_t sys_mmap (int fd, void *addr) {
+  if(is_kernel_vaddr(addr)) sys_exit(-1);
+
+  if(!addr || pg_ofs(addr) != 0 || (int)addr % PGSIZE != 0) return -1;
+
+  struct mmap_file *mfe = (struct mmap_file *)malloc(sizeof(struct mmap_file));
+  if (mfe == NULL) return -1;   
+	memset(mfe, 0, sizeof(struct mmap_file));
+
+  lock_acquire(&file_rw);
+  struct file* file = file_reopen(thread_current()->pcb->fd_table[fd]);
+  if (file_length(file) == 0) {
+    lock_release(&file_rw);
+    return -1;
+  }
+  lock_release(&file_rw);
+
+	list_init(&mfe->spte_list);
+  mfe->file = file;
+  int file_len = file_length(file);
+  off_t ofs = 0;
+  
+	while(file_len > 0) {
+    size_t read_bytes = file_len > PGSIZE ? PGSIZE : file_len;
+    size_t zero_bytes = PGSIZE - read_bytes;
+
+    struct page_entry* spte = spte_create(SPTE_FILE, addr, true, false, file, ofs, read_bytes, zero_bytes);
+    if (!spte) return -1;
+
+    list_push_back(&mfe->spte_list, &spte->mmap_elem);
+    spte_insert(&thread_current()->SPT, spte);
+    
+    addr += PGSIZE;
+    ofs += PGSIZE;
+    file_len -= PGSIZE;
+  }
+
+  mfe->mapping_id = thread_current()->mmap_next_mapid++;
+  list_push_back(&thread_current()->mmap_list, &mfe->elem);
+  return mfe->mapping_id;
+}
+
+void sys_munmap(mapid_t mapping) {
+	struct mmap_file *mfe = NULL;
+  struct list_elem *it = list_begin(&thread_current()->mmap_list);
+  while (it != list_end(&thread_current()->mmap_list)) {
+    mfe = list_entry(it, struct mmap_file, elem);
+    if (mfe->mapping_id == mapping) break;
+    it = list_next(it);
+  }
+  if(mfe == NULL) return;
+
+  while (!list_empty(&mfe->spte_list)) {
+    struct list_elem *e = list_pop_front(&mfe->spte_list);
+    struct page_entry *spte = list_entry(e, struct page_entry, mmap_elem);
+    if (spte->is_loaded && pagedir_is_dirty(thread_current()->pagedir, spte->vaddr)) {
+      lock_acquire(&file_rw);
+      file_write_at(spte->file, spte->vaddr, spte->read_bytes, spte->offset);
+      lock_release(&file_rw);
+      lock_acquire(&ft_lock);
+      free_frame(pagedir_get_page(thread_current()->pagedir, spte->vaddr));
+      lock_release(&ft_lock);
+    }
+    spte->is_loaded = false;
+    spte_delete(&thread_current()->SPT, spte);
+  }
+  list_remove(&mfe->elem);
+  free(mfe);	
 }

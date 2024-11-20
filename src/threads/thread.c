@@ -13,6 +13,8 @@
 #include "threads/vaddr.h"
 #include "threads/fixed-point.h"
 
+#include "vm/page.h"
+
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -348,6 +350,10 @@ thread_exit (void)
   }
   palloc_free_page(this->pcb->fd_table);
   palloc_free_page(this->pcb);
+
+  for (int i = 0; i < this->mmap_next_mapid; i++) sys_munmap(i);
+  SPT_destroy(&this->SPT);
+
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
@@ -574,6 +580,10 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&(t->donors));
   
   list_init(&(t->childs));
+
+  //Project 3
+  list_init(&(t->mmap_list));
+  t->mmap_next_mapid = 0;
 
   intr_set_level (old_level);
 }

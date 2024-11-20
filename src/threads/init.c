@@ -31,6 +31,12 @@
 #else
 #include "tests/threads/tests.h"
 #endif
+
+// Project 3
+#include "vm/frame.h"
+#include "vm/page.h"
+#include "vm/swap.h"
+
 #ifdef FILESYS
 #include "devices/block.h"
 #include "devices/ide.h"
@@ -99,6 +105,10 @@ main (void)
   malloc_init ();
   paging_init ();
 
+  // Project 3
+  ft_init();
+
+  
   /* Segmentation. */
 #ifdef USERPROG
   tss_init ();

@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include <hash.h>
 #include "threads/synch.h"
 
 /* States in a thread's life cycle. */
@@ -117,6 +118,10 @@ struct thread
     struct list childs;
     struct list_elem child_elem;
 //#endif
+   // Project 3
+   struct hash SPT;
+   struct list mmap_list;
+   int mmap_next_mapid;
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */

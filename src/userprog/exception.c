@@ -4,6 +4,11 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
+#include "userprog/process.h"
+
+#include "vm/page.h"
+#include "vm/frame.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -148,8 +153,27 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  sys_exit(-1);
-
+  if(!not_present || !is_kernel_vaddr(fault_addr)) {
+   if (lock_held_by_current_thread(&ft_lock)) {
+      lock_release(&ft_lock);
+   }
+   sys_exit(-1);
+  }
+  struct page_entry *spte = spte_find(fault_addr);
+  void *esp = f->esp;
+   if(spte != NULL) {
+      if (!fault_handler(spte)) {
+         sys_exit(-1);
+      }
+   }
+   else {
+      uint32_t lowest_stack_addr = PHYS_BASE - 0x800000;
+      if ( (fault_addr >= (esp-32)) && (fault_addr >= lowest_stack_addr)) {
+         if (!stack_grow(fault_addr)) sys_exit(-1);
+         else return;
+      }
+      else sys_exit(-1); 
+   }
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */

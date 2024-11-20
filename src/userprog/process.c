@@ -18,8 +18,14 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
+#include "vm/page.h"
+#include "vm/frame.h"
+#include "vm/swap.h"
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+
+extern struct lock file_rw;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -69,6 +75,9 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
+
+  // Project 3
+  SPT_init(&thread_current()->SPT);
   
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -447,29 +456,14 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-      /* Get a page of memory. */
-      uint8_t *kpage = palloc_get_page (PAL_USER);
-      if (kpage == NULL)
-        return false;
-
-      /* Load this page. */
-      if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }
-      memset (kpage + page_read_bytes, 0, page_zero_bytes);
-
-      /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable)) 
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }
-
+      struct page_entry *spte = spte_create(SPTE_BIN, upage, writable, false, file, ofs, page_read_bytes, page_zero_bytes);
+      if (!spte) return false;
+      spte_insert(&thread_current()->SPT, spte);
+      
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
+      ofs += page_read_bytes;
       upage += PGSIZE;
     }
   return true;
@@ -482,16 +476,24 @@ setup_stack (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
-
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  if (kpage != NULL) 
-    {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-        *esp = PHYS_BASE;
-      else
-        palloc_free_page (kpage);
+  lock_acquire(&ft_lock);
+  struct frame *frame = alloc_frame(PAL_USER | PAL_ZERO);
+  if (frame->physical_page != NULL) {
+    success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, frame->physical_page, true);
+    if (success) {
+      frame->spte = spte_create(SPTE_SWAP, ((uint8_t *)PHYS_BASE) - PGSIZE, true, true, NULL, NULL, 0, 0);
+      if (!frame->spte) {
+        free_frame(frame->physical_page);
+        lock_release(&ft_lock);
+        return false;
+      }
+      spte_insert(&thread_current()->SPT, frame->spte);
+      *esp = PHYS_BASE;
+    } else {
+      free_frame(frame->physical_page);
     }
+  }  
+  lock_release(&ft_lock);
   return success;
 }
 
@@ -558,4 +560,73 @@ void process_init_stack(int argc, char **argv, void **esp){
 
   *esp -= 4;
   **(uint32_t**)esp = 0; //return address
+}
+
+bool fault_handler(struct page_entry *spte) {
+  bool result = false;
+  lock_acquire(&ft_lock);
+  struct frame* frame = alloc_frame (PAL_USER);
+  frame->spte = spte;
+
+  switch(spte->type) {
+    case SPTE_BIN:
+      result = load_file(frame->physical_page, spte);
+      break;
+    case SPTE_FILE:
+      result = load_file(frame->physical_page, spte);
+      break;  
+    case SPTE_SWAP:
+      result = swap_in(spte->swap_slot, frame->physical_page);
+      break;
+    default:
+      free_frame(frame->physical_page);
+      lock_release(&ft_lock);
+      return false;
+  }
+  if (!result) {
+    free_frame(frame->physical_page);
+    lock_release(&ft_lock);
+    return false;
+  }
+  if (!install_page(spte->vaddr, frame->physical_page, spte->writable)) {
+    free_frame(frame->physical_page);
+    lock_release(&ft_lock);
+    return false;
+  }
+  spte->is_loaded = true;
+  lock_release(&ft_lock);
+  return true;
+}
+
+
+bool stack_grow (void *addr) {
+  struct frame *frame;
+	void *upage = pg_round_down(addr);
+  bool result = false;
+	
+  lock_acquire(&ft_lock);
+	frame = alloc_frame(PAL_USER | PAL_ZERO);
+	if (frame) {
+    result = install_page(upage, frame->physical_page, true);
+    if (!result) {
+      free_frame(frame->physical_page);
+      lock_release(&ft_lock);
+      return false;
+    }
+    else {
+      frame->spte = spte_create(SPTE_SWAP, upage, true, true, NULL, NULL, 0, 0);
+      if (!frame->spte) {
+        free_frame(frame->physical_page);
+        lock_release(&ft_lock);
+        return false;
+      }
+      spte_insert(&thread_current()->SPT, frame->spte);
+      lock_release(&ft_lock);
+      return true;
+    }    
+  }
+  else {
+    lock_release(&ft_lock);
+    return false;
+  }    
 }
