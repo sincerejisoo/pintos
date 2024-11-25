@@ -155,7 +155,8 @@ process_exit (void)
   if (cur->pcb->is_exited) return;
   cur->pcb->is_exited = true;
   file_close(child_pcb->exe_file);
-
+  for (int i = 0; i < cur->mmap_next_mapid; i++) sys_munmap(i);
+  SPT_destroy(&cur->SPT);
   pd = cur->pagedir;
   if (pd != NULL) 
     {
@@ -277,7 +278,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
-  
+
   /* Open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 

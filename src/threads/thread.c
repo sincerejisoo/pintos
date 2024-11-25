@@ -351,8 +351,7 @@ thread_exit (void)
   palloc_free_page(this->pcb->fd_table);
   palloc_free_page(this->pcb);
 
-  for (int i = 0; i < this->mmap_next_mapid; i++) sys_munmap(i);
-  SPT_destroy(&this->SPT);
+  
 
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us

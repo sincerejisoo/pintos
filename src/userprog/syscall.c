@@ -20,7 +20,7 @@ syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   lock_init(&file_rw);
-  //printf("file_rw lock's address: %p\n", &file_rw);
+  printf("file_rw lock's address: %p\n", &file_rw);
 }
 
 void get_argument(int *esp, int *args, int arg_count){
@@ -346,9 +346,9 @@ void sys_munmap(mapid_t mapping) {
       lock_acquire(&file_rw);
       file_write_at(spte->file, spte->vaddr, spte->read_bytes, spte->offset);
       lock_release(&file_rw);
-      lock_acquire(&ft_lock);
+      //lock_acquire(&ft_lock);
       free_frame(pagedir_get_page(thread_current()->pagedir, spte->vaddr));
-      lock_release(&ft_lock);
+      //lock_release(&ft_lock);
     }
     spte->is_loaded = false;
     spte_delete(&thread_current()->SPT, spte);

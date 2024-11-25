@@ -51,17 +51,13 @@ bool spte_insert(struct hash *SPT, struct page_entry *spte) {
 }
 
 bool spte_delete(struct hash *SPT, struct page_entry *spte) {
-    lock_acquire(&ft_lock);
     struct hash_elem *result = hash_delete(SPT, &spte->elem);
-    if (result != NULL)
-    {
+    if (result != NULL) {
         free_frame(pagedir_get_page(thread_current()->pagedir, spte->vaddr));
         free(spte);
-        lock_release(&ft_lock);
         return true;
     }
     else {
-        lock_release(&ft_lock);
         return false;
     }
 }
@@ -79,14 +75,14 @@ struct page_entry *spte_find(void *vaddr) {
 
 void spte_destroy_func(struct hash_elem *e, void *aux UNUSED) {
     struct page_entry *spte = hash_entry(e, struct page_entry, elem);
-    lock_acquire(&ft_lock);
+    //lock_acquire(&ft_lock);
     if(spte){
         if(spte->is_loaded){
             free_frame(pagedir_get_page(thread_current()->pagedir, spte->vaddr));
         }
         free(spte);
     }
-    lock_release(&ft_lock);
+    //lock_release(&ft_lock);
 }
 
 void SPT_destroy(struct hash *SPT) {
