@@ -11,7 +11,7 @@
 #define SPTE_SWAP 2 // swap partition으로부터 load된 data (must be immediately loaded)
 
 struct page_entry {
-	uint8_t type; // entry type: SWAP_DIRTY, FILE_DIRTY, SWAP_CLEAN
+	uint8_t type; // entry type: SPTE_BIN, SPTE_FILE, SPTE_SWAP
 	void *vaddr; // virtual page address
 	bool writable; // 0: read-only, 1: writable
 	bool is_loaded; // 0: not loaded to memory, 1: loaded to memory
@@ -22,6 +22,7 @@ struct page_entry {
     struct hash_elem elem; // hash_elem variable for hash table
     struct list_elem mmap_elem; // list_elem variable for mmap list
     size_t swap_slot; // swap slot number
+	//struct frame *frame; // frame pointer
 };
 
 struct mmap_file {

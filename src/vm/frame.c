@@ -85,6 +85,8 @@ void free_frame(void *addr) {
     {
         return;
     }
+    frame->spte->is_loaded = false;
+    pagedir_clear_page(frame->thread->pagedir, frame->spte->vaddr);
     palloc_free_page(frame->physical_page);
     frame_delete(frame);
     free(frame);
@@ -108,7 +110,7 @@ void evict_frame(void) {
         case SPTE_BIN:
             if (dirty_bit){
                 frame_victim->spte->swap_slot = swap_out(frame_victim->physical_page);
-                frame_victim->spte->type = SPTE_SWAP; // lazy loading
+                frame_victim->spte->type = SPTE_SWAP; // lazy loading을 방지하여야 하므로 type 변경
             }
             break;
         case SPTE_FILE:

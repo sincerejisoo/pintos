@@ -26,7 +26,7 @@ void frame_delete(struct frame *frame);
 struct frame *frame_find(void *page_addr);
 struct frame *alloc_frame(enum palloc_flags flags);
 
-struct frame *find_frame_for_vaddr(void* vaddr);
+struct frame *find_frame_for_vaddr(void *vaddr);
 void free_frame(void *addr);
 
 void evict_frame(void);
