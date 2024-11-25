@@ -15,6 +15,9 @@ struct list_elem *frame_clock;
 void ft_init() {
     list_init(&frame_table);
     lock_init(&ft_lock);
+
+    //printf("ft_lock's address: %p\n", &ft_lock);
+
     frame_clock = NULL;
 }
 

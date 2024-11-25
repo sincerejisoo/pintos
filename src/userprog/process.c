@@ -277,7 +277,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
-
+  
   /* Open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 
@@ -288,7 +288,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   t->pcb->exe_file = file;
   file_deny_write(file);
-
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)

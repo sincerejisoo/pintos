@@ -20,6 +20,7 @@ syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   lock_init(&file_rw);
+  //printf("file_rw lock's address: %p\n", &file_rw);
 }
 
 void get_argument(int *esp, int *args, int arg_count){
@@ -198,29 +199,28 @@ int sys_read(int fd, void *buffer, unsigned size){
     }
   }
   int result = 0;
-  lock_acquire(&file_rw);
   int fd_count = thread_current()->pcb->fd_count;
   
   if (fd >= fd_count || fd < 0) {
-    lock_release(&file_rw);
     return -1;
   }
   else if(fd == 0){
+    lock_acquire(&file_rw);
     for (int i = 0; i < size; i++){
       ((char *)buffer)[i] = input_getc();
       if (((char *)buffer)[i] == '\0') break;
       result = i;
     }
+    lock_release(&file_rw);
   }
   else {
     struct file *file = thread_current()->pcb->fd_table[fd];
     if (file == NULL){
-      lock_release(&file_rw);
+      
       return -1;
     }
     result = file_read(file, buffer, size);
   }
-  lock_release(&file_rw);
   return result;
 }
 

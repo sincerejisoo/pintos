@@ -197,7 +197,12 @@ lock_acquire (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
-  ASSERT (!lock_held_by_current_thread (lock));
+  if (lock_held_by_current_thread (lock)){
+    printf("Thread %s attempting to acquire lock %p already held by it\n", thread_current()->name, (void*)lock);
+    ASSERT (!lock_held_by_current_thread (lock));
+  }
+  
+  //ASSERT (!lock_held_by_current_thread (lock));
   struct thread *this = thread_current();
   if(!thread_mlfqs){
      
