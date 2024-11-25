@@ -98,10 +98,13 @@ void free_frame(void *addr) {
 void evict_frame(void) {
     struct frame *frame_victim = NULL;
     while (true) {
-        if (frame_clock == NULL) frame_clock = list_begin(&frame_table);
+        if (frame_clock == NULL || frame_clock==list_end(&frame_table)) frame_clock = list_begin(&frame_table);
         else frame_clock = list_next(frame_clock);
+        if(frame_clock==list_end(&frame_table)) continue;
         frame_victim = list_entry(frame_clock, struct frame, ft_elem);
-        if (!pagedir_is_accessed(frame_victim->thread->pagedir, frame_victim->spte->vaddr)) break;
+        if (!pagedir_is_accessed(frame_victim->thread->pagedir, frame_victim->spte->vaddr)) {
+            break;
+        }
         pagedir_set_accessed(frame_victim->thread->pagedir, frame_victim->spte->vaddr, false);
     }
     if (frame_victim == NULL)

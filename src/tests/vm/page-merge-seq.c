@@ -93,7 +93,6 @@ merge (void)
       for (i = 1; i < mp_left; i++)
         if (*mp[i] < *mp[min])
           min = i;
-
       /* Append value to buf2. */
       *op++ = *mp[min];
 

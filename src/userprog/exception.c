@@ -171,16 +171,29 @@ page_fault (struct intr_frame *f)
   }
    if(spte != NULL) {
       if (!fault_handler(spte)) {
+         if (lock_held_by_current_thread(&ft_lock)) {
+            lock_release(&ft_lock);
+         }
          sys_exit(-1);
       }
    }
    else {
       uint32_t lowest_stack_addr = PHYS_BASE - 0x800000;
       if ( (fault_addr >= (esp-32)) && (fault_addr >= lowest_stack_addr)) {
-         if (!stack_grow(fault_addr)) sys_exit(-1);
+         if (!stack_grow(fault_addr)) {
+            if (lock_held_by_current_thread(&ft_lock)) {
+               lock_release(&ft_lock);
+            }
+            sys_exit(-1);
+         }
          else return;
       }
-      else sys_exit(-1); 
+      else {
+         if (lock_held_by_current_thread(&ft_lock)) {
+            lock_release(&ft_lock);
+         }
+         sys_exit(-1);
+      } 
    }
 
    //sys_exit(-1);

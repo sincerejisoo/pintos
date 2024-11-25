@@ -571,6 +571,7 @@ bool fault_handler(struct page_entry *spte) {
   switch(spte->type) {
     case SPTE_BIN:
       result = load_file(frame->physical_page, spte);
+      //printf("TEST");
       break;
     case SPTE_FILE:
       result = load_file(frame->physical_page, spte);
@@ -583,6 +584,7 @@ bool fault_handler(struct page_entry *spte) {
       lock_release(&ft_lock);
       return false;
   }
+  //printf("dddddddd\n");
   if (!result) {
     free_frame(frame->physical_page);
     lock_release(&ft_lock);
