@@ -38,6 +38,10 @@ syscall_handler (struct intr_frame *f)
     sys_exit(-1);
   }
   int args[3];
+  
+  //현재 stack pointer value를 thread에 저장
+  thread_current()->esp = f->esp;
+
   switch(*(int *)f->esp){
     case SYS_HALT:
       shutdown_power_off();

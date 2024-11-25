@@ -106,6 +106,10 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
   ASSERT (vtop (kpage) >> PTSHIFT < init_ram_pages);
   ASSERT (pd != init_page_dir);
 
+  ASSERT(upage != NULL);
+  ASSERT(kpage != NULL);
+  ASSERT(is_user_vaddr(upage));  // Ensure it's a user address.
+
   pte = lookup_page (pd, upage, true);
 
   if (pte != NULL) 

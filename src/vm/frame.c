@@ -19,9 +19,9 @@ void ft_init() {
 }
 
 void frame_insert(struct frame *frame) {
-    lock_acquire(&ft_lock);
+    //lock_acquire(&ft_lock);
     list_push_back(&frame_table, &frame->ft_elem);
-    lock_release(&ft_lock);
+    //lock_release(&ft_lock);
 }
 
 void frame_delete(struct frame *frame) {

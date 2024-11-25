@@ -153,14 +153,22 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  if(!not_present || !is_kernel_vaddr(fault_addr)) {
+  //debugging
+  //printf("Page fault at address %p: error %x\n", fault_addr, f->error_code);
+
+  if(is_kernel_vaddr(fault_addr) || !not_present) {
    if (lock_held_by_current_thread(&ft_lock)) {
       lock_release(&ft_lock);
    }
    sys_exit(-1);
   }
   struct page_entry *spte = spte_find(fault_addr);
-  void *esp = f->esp;
+  void *esp;
+  if (user){
+      esp = f->esp;
+   } else {
+      esp = thread_current()->esp;
+  }
    if(spte != NULL) {
       if (!fault_handler(spte)) {
          sys_exit(-1);
@@ -175,7 +183,7 @@ page_fault (struct intr_frame *f)
       else sys_exit(-1); 
    }
 
-   sys_exit(-1);
+   //sys_exit(-1);
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */

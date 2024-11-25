@@ -483,7 +483,7 @@ setup_stack (void **esp)
     if (success) {
       frame->spte = spte_create(SPTE_SWAP, ((uint8_t *)PHYS_BASE) - PGSIZE, true, true, NULL, NULL, 0, 0);
       if (!frame->spte) {
-        free_frame(frame->physical_page);
+        //free_frame(frame->physical_page);
         lock_release(&ft_lock);
         return false;
       }
@@ -510,7 +510,7 @@ static bool
 install_page (void *upage, void *kpage, bool writable)
 {
   struct thread *t = thread_current ();
-
+  ASSERT(t->pagedir != NULL);
   /* Verify that there's not already a page at that virtual
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
