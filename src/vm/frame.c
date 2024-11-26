@@ -35,17 +35,17 @@ void frame_delete(struct frame *frame) {
 struct frame *frame_find(void *page_addr) {
     struct list_elem *e;
     struct frame *frame;
-    lock_acquire(&ft_lock);
+    //lock_acquire(&ft_lock);
     for (e = list_begin(&frame_table); e != list_end(&frame_table); e = list_next(e))
     {
         frame = list_entry(e, struct frame, ft_elem);
         if (frame->physical_page == page_addr)
         {
-            lock_release(&ft_lock);
+            //lock_release(&ft_lock);
             return frame;
         }
     }
-    lock_release(&ft_lock);
+    //lock_release(&ft_lock);
     return NULL;
 }
 
@@ -68,21 +68,22 @@ struct frame *alloc_frame(enum palloc_flags flags) {
 struct frame *find_frame_for_vaddr(void *vaddr) {
     struct list_elem *e;
     struct frame *frame;
-    lock_acquire(&ft_lock);
+    //lock_acquire(&ft_lock);
     for (e = list_begin(&frame_table); e != list_end(&frame_table); e = list_next(e))
     {
         frame = list_entry(e, struct frame, ft_elem);
         if (pagedir_get_page(frame->thread->pagedir, vaddr) == frame->physical_page)
         {
-            lock_release(&ft_lock);
+            //lock_release(&ft_lock);
             return frame;
         }
     }
-    lock_release(&ft_lock);
+    //lock_release(&ft_lock);
     return NULL;
 }
 
 void free_frame(void *addr) {
+    lock_acquire(&ft_lock);
     struct frame *frame = frame_find(addr);
     if (frame == NULL)
     {
@@ -93,6 +94,7 @@ void free_frame(void *addr) {
     palloc_free_page(frame->physical_page);
     frame_delete(frame);
     free(frame);
+    lock_release(&ft_lock);
 }
 
 void evict_frame(void) {
@@ -102,6 +104,7 @@ void evict_frame(void) {
         else frame_clock = list_next(frame_clock);
         if(frame_clock==list_end(&frame_table)) continue;
         frame_victim = list_entry(frame_clock, struct frame, ft_elem);
+        if (frame_victim->pin) continue;
         if (!pagedir_is_accessed(frame_victim->thread->pagedir, frame_victim->spte->vaddr)) {
             break;
         }
@@ -135,4 +138,17 @@ void evict_frame(void) {
     frame_delete(frame_victim);
     frame_victim->spte->is_loaded = false;
     free(frame_victim);
+}
+void pin_user_frame(void *kaddr) {
+    struct frame *frame = frame_find(kaddr);
+    if (frame != NULL) {
+        frame->pin = true;
+    }    
+}
+
+void unpin_user_frame(void *kaddr) {
+    struct frame *frame = frame_find(kaddr);
+    if (frame != NULL) {
+        frame->pin = false;
+    }    
 }

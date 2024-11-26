@@ -564,7 +564,7 @@ void process_init_stack(int argc, char **argv, void **esp){
 
 bool fault_handler(struct page_entry *spte) {
   bool result = false;
-  lock_acquire(&ft_lock);
+  //lock_acquire(&ft_lock);
   struct frame* frame = alloc_frame (PAL_USER);
   frame->spte = spte;
 
@@ -581,7 +581,7 @@ bool fault_handler(struct page_entry *spte) {
       break;
     default:
       free_frame(frame->physical_page);
-      lock_release(&ft_lock);
+      //lock_release(&ft_lock);
       return false;
   }
   //printf("dddddddd\n");
@@ -592,11 +592,11 @@ bool fault_handler(struct page_entry *spte) {
   }
   if (!install_page(spte->vaddr, frame->physical_page, spte->writable)) {
     free_frame(frame->physical_page);
-    lock_release(&ft_lock);
+    //lock_release(&ft_lock);
     return false;
   }
   spte->is_loaded = true;
-  lock_release(&ft_lock);
+  //lock_release(&ft_lock);
   return true;
 }
 
@@ -606,13 +606,13 @@ bool stack_grow (void *addr) {
 	void *upage = pg_round_down(addr);
   bool result = false;
 	
-  lock_acquire(&ft_lock);
+  //lock_acquire(&ft_lock);
 	frame = alloc_frame(PAL_USER | PAL_ZERO);
 	if (frame) {
     result = install_page(upage, frame->physical_page, true);
     if (!result) {
       free_frame(frame->physical_page);
-      lock_release(&ft_lock);
+      //lock_release(&ft_lock);
       return false;
     }
     else {
@@ -623,12 +623,12 @@ bool stack_grow (void *addr) {
         return false;
       }
       spte_insert(&thread_current()->SPT, frame->spte);
-      lock_release(&ft_lock);
+      //lock_release(&ft_lock);
       return true;
     }    
   }
   else {
-    lock_release(&ft_lock);
+    //lock_release(&ft_lock);
     return false;
   }    
 }

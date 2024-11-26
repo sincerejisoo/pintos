@@ -14,6 +14,7 @@ struct frame
 	struct page_entry *spte;
 	struct thread *thread;
 	struct list_elem ft_elem; 
+	bool pin;
 };
 
 extern struct list frame_table;
@@ -30,5 +31,8 @@ struct frame *find_frame_for_vaddr(void *vaddr);
 void free_frame(void *addr);
 
 void evict_frame(void);
+
+void pin_user_frame(void *kaddr);
+void unpin_user_frame(void *kaddr);
 
 #endif
