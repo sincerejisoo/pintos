@@ -535,35 +535,44 @@ mapid_t sys_mmap (int fd, void *addr) {
   if(!addr || pg_ofs(addr) != 0 || (int)addr % PGSIZE != 0) return -1;
 
   struct mmap_file *mfe = (struct mmap_file *)malloc(sizeof(struct mmap_file));
-  if (mfe == NULL) return -1;   
+  if (mfe == NULL) {
+    free(mfe);
+    return -1;
+  }   
 	memset(mfe, 0, sizeof(struct mmap_file));
 
   lock_acquire(&file_rw);
   struct file* file = file_reopen(thread_current()->pcb->fd_table[fd]);
-  if (file_length(file) == 0) {
+  int length = file_length(file);
+  if (length == 0) {
     lock_release(&file_rw);
+    free(mfe);
     return -1;
   }
   lock_release(&file_rw);
-
+  if(spte_find(addr) != NULL) {
+    free(mfe);
+    return -1;
+  }
 	list_init(&mfe->spte_list);
   mfe->file = file;
-  int file_len = file_length(file);
   off_t ofs = 0;
   
-	while(file_len > 0) {
-    size_t read_bytes = file_len > PGSIZE ? PGSIZE : file_len;
+	while(length > 0) {
+    size_t read_bytes = length > PGSIZE ? PGSIZE : length;
     size_t zero_bytes = PGSIZE - read_bytes;
 
     struct page_entry* spte = spte_create(SPTE_FILE, addr, true, false, file, ofs, read_bytes, zero_bytes);
-    if (!spte) return -1;
-
+    if (!spte) {
+      free(mfe);
+      return -1;
+    }
     list_push_back(&mfe->spte_list, &spte->mmap_elem);
     spte_insert(&thread_current()->SPT, spte);
     
     addr += PGSIZE;
     ofs += PGSIZE;
-    file_len -= PGSIZE;
+    length -= PGSIZE;
   }
 
   mfe->mapping_id = thread_current()->mmap_next_mapid++;
@@ -581,9 +590,8 @@ void sys_munmap(mapid_t mapping) {
   }
   if(mfe == NULL) return;
 
-  while (!list_empty(&mfe->spte_list)) {
-    struct list_elem *e = list_pop_front(&mfe->spte_list);
-    struct page_entry *spte = list_entry(e, struct page_entry, mmap_elem);
+  for(it = list_begin(&mfe->spte_list); it != list_end(&mfe->spte_list);) {
+    struct page_entry *spte = list_entry(it, struct page_entry, mmap_elem);
     if (spte->is_loaded && pagedir_is_dirty(thread_current()->pagedir, spte->vaddr)) {
       lock_acquire(&file_rw);
       file_write_at(spte->file, spte->vaddr, spte->read_bytes, spte->offset);
@@ -593,6 +601,7 @@ void sys_munmap(mapid_t mapping) {
       //lock_release(&ft_lock);
     }
     spte->is_loaded = false;
+    it = list_remove(it);
     spte_delete(&thread_current()->SPT, spte);
   }
   list_remove(&mfe->elem);

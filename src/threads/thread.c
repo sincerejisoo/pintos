@@ -582,7 +582,7 @@ init_thread (struct thread *t, const char *name, int priority)
 
   //Project 3
   list_init(&(t->mmap_list));
-  t->mmap_next_mapid = 0;
+  t->mmap_next_mapid = 1;
 
   intr_set_level (old_level);
 }

@@ -490,7 +490,9 @@ setup_stack (void **esp)
       spte_insert(&thread_current()->SPT, frame->spte);
       *esp = PHYS_BASE;
     } else {
+      lock_release(&ft_lock);
       free_frame(frame->physical_page);
+      return false;
     }
   }  
   lock_release(&ft_lock);
@@ -587,7 +589,7 @@ bool fault_handler(struct page_entry *spte) {
   //printf("dddddddd\n");
   if (!result) {
     free_frame(frame->physical_page);
-    lock_release(&ft_lock);
+    //lock_release(&ft_lock);
     return false;
   }
   if (!install_page(spte->vaddr, frame->physical_page, spte->writable)) {

@@ -87,6 +87,7 @@ void free_frame(void *addr) {
     struct frame *frame = frame_find(addr);
     if (frame == NULL)
     {
+        lock_release(&ft_lock);
         return;
     }
     frame->spte->is_loaded = false;
