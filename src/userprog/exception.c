@@ -153,45 +153,28 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  //debugging
-  //printf("Page fault at address %p: error %x\n", fault_addr, f->error_code);
 
   if(is_kernel_vaddr(fault_addr) || !not_present) {
-   if (lock_held_by_current_thread(&ft_lock)) {
-      lock_release(&ft_lock);
-   }
-   sys_exit(-1);
+      sys_exit(-1);
   }
   struct page_entry *spte = spte_find(fault_addr);
-  void *esp;
-  if (user){
-      esp = f->esp;
-   } else {
-      esp = thread_current()->esp;
-  }
+  
    if(spte != NULL) {
       if (!fault_handler(spte)) {
-         if (lock_held_by_current_thread(&ft_lock)) {
-            lock_release(&ft_lock);
-         }
          sys_exit(-1);
       }
    }
    else {
+      void *esp;
+      esp = f->esp;
       uint32_t lowest_stack_addr = PHYS_BASE - 0x800000;
       if ( (fault_addr >= (esp-32)) && (fault_addr >= lowest_stack_addr)) {
          if (!stack_grow(fault_addr)) {
-            if (lock_held_by_current_thread(&ft_lock)) {
-               lock_release(&ft_lock);
-            }
             sys_exit(-1);
          }
          else return;
       }
       else {
-         if (lock_held_by_current_thread(&ft_lock)) {
-            lock_release(&ft_lock);
-         }
          sys_exit(-1);
       } 
    }

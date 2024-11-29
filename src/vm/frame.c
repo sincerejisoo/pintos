@@ -16,36 +16,33 @@ void ft_init() {
     list_init(&frame_table);
     lock_init(&ft_lock);
 
-    printf("ft_lock's address: %p\n", &ft_lock);
-
     frame_clock = NULL;
 }
 
 void frame_insert(struct frame *frame) {
-    //lock_acquire(&ft_lock);
+    lock_acquire(&ft_lock);
     list_push_back(&frame_table, &frame->ft_elem);
-    //lock_release(&ft_lock);
+    lock_release(&ft_lock);
 }
 
 void frame_delete(struct frame *frame) {
+    lock_acquire(&ft_lock);
     if (frame_clock != &frame->ft_elem)	list_remove(&frame->ft_elem);
 	else if (frame_clock == &frame->ft_elem) frame_clock = list_remove(frame_clock);
+    lock_release(&ft_lock);
 }
 
 struct frame *frame_find(void *page_addr) {
     struct list_elem *e;
     struct frame *frame;
-    //lock_acquire(&ft_lock);
     for (e = list_begin(&frame_table); e != list_end(&frame_table); e = list_next(e))
     {
         frame = list_entry(e, struct frame, ft_elem);
         if (frame->physical_page == page_addr)
         {
-            //lock_release(&ft_lock);
             return frame;
         }
     }
-    //lock_release(&ft_lock);
     return NULL;
 }
 
@@ -68,26 +65,21 @@ struct frame *alloc_frame(enum palloc_flags flags) {
 struct frame *find_frame_for_vaddr(void *vaddr) {
     struct list_elem *e;
     struct frame *frame;
-    //lock_acquire(&ft_lock);
     for (e = list_begin(&frame_table); e != list_end(&frame_table); e = list_next(e))
     {
         frame = list_entry(e, struct frame, ft_elem);
         if (pagedir_get_page(frame->thread->pagedir, vaddr) == frame->physical_page)
         {
-            //lock_release(&ft_lock);
             return frame;
         }
     }
-    //lock_release(&ft_lock);
     return NULL;
 }
 
 void free_frame(void *addr) {
-    lock_acquire(&ft_lock);
     struct frame *frame = frame_find(addr);
     if (frame == NULL)
     {
-        lock_release(&ft_lock);
         return;
     }
     frame->spte->is_loaded = false;
@@ -95,7 +87,6 @@ void free_frame(void *addr) {
     palloc_free_page(frame->physical_page);
     frame_delete(frame);
     free(frame);
-    lock_release(&ft_lock);
 }
 
 void evict_frame(void) {
@@ -120,7 +111,7 @@ void evict_frame(void) {
         case SPTE_BIN:
             if (dirty_bit){
                 frame_victim->spte->swap_slot = swap_out(frame_victim->physical_page);
-                frame_victim->spte->type = SPTE_SWAP; // lazy loading을 방지하여야 하므로 type 변경
+                frame_victim->spte->type = SPTE_SWAP; 
             }
             break;
         case SPTE_FILE:
@@ -134,22 +125,22 @@ void evict_frame(void) {
             frame_victim->spte->swap_slot = swap_out(frame_victim->physical_page);
             break;
     }
-    pagedir_clear_page(frame_victim->thread->pagedir, frame_victim->spte->vaddr);
-    palloc_free_page(frame_victim->physical_page);
-    frame_delete(frame_victim);
-    frame_victim->spte->is_loaded = false;
-    free(frame_victim);
+    free_frame(frame_victim->physical_page);
 }
 void pin_user_frame(void *kaddr) {
     struct frame *frame = frame_find(kaddr);
     if (frame != NULL) {
+        lock_acquire(&ft_lock);
         frame->pin = true;
+        lock_release(&ft_lock);
     }    
 }
 
 void unpin_user_frame(void *kaddr) {
     struct frame *frame = frame_find(kaddr);
     if (frame != NULL) {
+        lock_acquire(&ft_lock);
         frame->pin = false;
+        lock_release(&ft_lock);
     }    
 }

@@ -280,7 +280,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
+  lock_acquire(&file_rw);
   file = filesys_open (file_name);
+  lock_release(&file_rw);
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
@@ -288,7 +290,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   t->pcb->exe_file = file;
+  lock_acquire(&file_rw);
   file_deny_write(file);
+  lock_release(&file_rw);
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -474,29 +478,27 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
+
   uint8_t *kpage;
   bool success = false;
-  lock_acquire(&ft_lock);
   struct frame *frame = alloc_frame(PAL_USER | PAL_ZERO);
   if (frame->physical_page != NULL) {
     success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, frame->physical_page, true);
     if (success) {
       frame->spte = spte_create(SPTE_SWAP, ((uint8_t *)PHYS_BASE) - PGSIZE, true, true, NULL, NULL, 0, 0);
       if (!frame->spte) {
-        //free_frame(frame->physical_page);
-        lock_release(&ft_lock);
+
         return false;
       }
       spte_insert(&thread_current()->SPT, frame->spte);
       *esp = PHYS_BASE;
     } else {
-      lock_release(&ft_lock);
       free_frame(frame->physical_page);
       return false;
     }
   }  
-  lock_release(&ft_lock);
   return success;
+
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel
@@ -566,14 +568,12 @@ void process_init_stack(int argc, char **argv, void **esp){
 
 bool fault_handler(struct page_entry *spte) {
   bool result = false;
-  //lock_acquire(&ft_lock);
   struct frame* frame = alloc_frame (PAL_USER);
   frame->spte = spte;
 
   switch(spte->type) {
     case SPTE_BIN:
       result = load_file(frame->physical_page, spte);
-      //printf("TEST");
       break;
     case SPTE_FILE:
       result = load_file(frame->physical_page, spte);
@@ -583,22 +583,17 @@ bool fault_handler(struct page_entry *spte) {
       break;
     default:
       free_frame(frame->physical_page);
-      //lock_release(&ft_lock);
       return false;
   }
-  //printf("dddddddd\n");
   if (!result) {
     free_frame(frame->physical_page);
-    //lock_release(&ft_lock);
     return false;
   }
   if (!install_page(spte->vaddr, frame->physical_page, spte->writable)) {
     free_frame(frame->physical_page);
-    //lock_release(&ft_lock);
     return false;
   }
   spte->is_loaded = true;
-  //lock_release(&ft_lock);
   return true;
 }
 
@@ -608,29 +603,24 @@ bool stack_grow (void *addr) {
 	void *upage = pg_round_down(addr);
   bool result = false;
 	
-  //lock_acquire(&ft_lock);
 	frame = alloc_frame(PAL_USER | PAL_ZERO);
 	if (frame) {
     result = install_page(upage, frame->physical_page, true);
     if (!result) {
       free_frame(frame->physical_page);
-      //lock_release(&ft_lock);
       return false;
     }
     else {
       frame->spte = spte_create(SPTE_SWAP, upage, true, true, NULL, NULL, 0, 0);
       if (!frame->spte) {
         free_frame(frame->physical_page);
-        lock_release(&ft_lock);
         return false;
       }
       spte_insert(&thread_current()->SPT, frame->spte);
-      //lock_release(&ft_lock);
       return true;
     }    
   }
   else {
-    //lock_release(&ft_lock);
     return false;
-  }    
+  }
 }

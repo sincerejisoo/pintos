@@ -18,10 +18,10 @@ void swap_init() {
 
 bool swap_in(size_t slot_idx, void *kaddr) {
 	int start_sector = slot_idx * SEC_PER_PG;
-    lock_acquire(&swap_lock);
 	for (int i = 0; i < SEC_PER_PG; i++) {	
 		block_read(swap_block, start_sector + i, kaddr + i * BLOCK_SECTOR_SIZE);
 	}
+	lock_acquire(&swap_lock);
 	bitmap_set(swap_bitmap, slot_idx, false);
     lock_release(&swap_lock);
 	return true;
@@ -30,10 +30,10 @@ bool swap_in(size_t slot_idx, void *kaddr) {
 size_t swap_out(void* kaddr) {
     lock_acquire(&swap_lock);
 	size_t slot_idx = bitmap_scan_and_flip(swap_bitmap, 0, 1, false);
+	lock_release(&swap_lock);
 	if(slot_idx == BITMAP_ERROR)
 	{
-		lock_release(&swap_lock);
-		PANIC("swap partition full"); // swap partition is full, kernel must panic
+		PANIC("swap partition full");
 		return BITMAP_ERROR;
 	}
 
@@ -41,6 +41,5 @@ size_t swap_out(void* kaddr) {
 	for (int i = 0; i < SEC_PER_PG; i++) {
 		block_write(swap_block, start_sector + i, kaddr + i * BLOCK_SECTOR_SIZE);
 	}
-	lock_release(&swap_lock);
 	return slot_idx;
 }

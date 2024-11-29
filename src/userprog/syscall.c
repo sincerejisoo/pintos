@@ -22,7 +22,6 @@ syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   lock_init(&file_rw);
-  printf("file_rw lock's address: %p\n", &file_rw);
 }
 
 void get_argument(int *esp, int *args, int arg_count){
@@ -42,8 +41,6 @@ syscall_handler (struct intr_frame *f)
   }
   int args[3];
   
-  //현재 stack pointer value를 thread에 저장
-  thread_current()->esp = f->esp;
 
   switch(*(int *)f->esp){
     case SYS_HALT:
@@ -149,9 +146,7 @@ pid_t sys_exec(const char *file, void *esp){
     if(spte != NULL) {
       if(!spte->is_loaded) {
         if (!fault_handler(spte)) {
-          if (lock_held_by_current_thread(&ft_lock)) {
-            lock_release(&ft_lock);
-          }
+
           sys_exit(-1);
         }
       }
@@ -160,24 +155,20 @@ pid_t sys_exec(const char *file, void *esp){
       uint32_t lowest_stack_addr = PHYS_BASE - 0x800000;
       if ((buffer_temp >= (esp-32)) && (buffer_temp >= lowest_stack_addr)) {
         if (!stack_grow(buffer_temp)) {
-          if (lock_held_by_current_thread(&ft_lock)) {
-            lock_release(&ft_lock);
-          }
+
           sys_exit(-1);
         }
       }
       else {
-        if (lock_held_by_current_thread(&ft_lock)) {
-          lock_release(&ft_lock);
-        }
+
         sys_exit(-1);
       }
     }
-    lock_acquire(&ft_lock);
+
     size_t read_bt = remained_buffer_size > PGSIZE - pg_ofs(buffer_temp) ? PGSIZE - pg_ofs(buffer_temp) : remained_buffer_size;
     struct frame *pin = find_frame_for_vaddr(pg_round_down(buffer_temp));
     pin_user_frame(pin->physical_page);
-    lock_release(&ft_lock);
+
     remained_buffer_size -= read_bt;
     buffer_temp += read_bt;
   }
@@ -190,11 +181,11 @@ pid_t sys_exec(const char *file, void *esp){
   remained_buffer_size = strlen(file) + 1;
   buffer_temp = (void *)file;
   while(remained_buffer_size > 0) {
-    lock_acquire(&ft_lock);
+
     size_t read_bt = remained_buffer_size > PGSIZE - pg_ofs(buffer_temp) ? PGSIZE - pg_ofs(buffer_temp) : remained_buffer_size;
     struct frame *unpin = find_frame_for_vaddr(pg_round_down(buffer_temp));
     unpin_user_frame(unpin->physical_page);
-    lock_release(&ft_lock);
+
     remained_buffer_size -= read_bt;
     buffer_temp += read_bt;
   }
@@ -228,21 +219,23 @@ bool sys_remove(const char *file){
 }
 
 int sys_open(const char *file){
-  lock_acquire(&file_rw);
+
   if (file == NULL || !is_user_vaddr(file) || file < 0x8048000){
-    lock_release(&file_rw);
+
     sys_exit(-1);
   }
+  lock_acquire(&file_rw);
   struct file *_file = filesys_open(file);
+  lock_release(&file_rw);
   if (_file == NULL){
-    lock_release(&file_rw);
+
     return -1;
   }
   struct thread *this = thread_current();
   this->pcb->fd_table[this->pcb->fd_count] = _file;
   this->pcb->fd_count++;
   
-  lock_release(&file_rw);
+
   return (this->pcb->fd_count) - 1;
   
 }
@@ -273,9 +266,7 @@ int sys_read(int fd, void *buffer, unsigned size, void *esp){
     if(spte != NULL) {
       if(!spte->is_loaded) {
         if (!fault_handler(spte)) {
-          if (lock_held_by_current_thread(&ft_lock)) {
-            lock_release(&ft_lock);
-          }
+
           sys_exit(-1);
         }
       }
@@ -284,24 +275,20 @@ int sys_read(int fd, void *buffer, unsigned size, void *esp){
       uint32_t lowest_stack_addr = PHYS_BASE - 0x800000;
       if ((buffer_temp >= (esp-32)) && (buffer_temp >= lowest_stack_addr)) {
         if (!stack_grow(buffer_temp)) {
-          if (lock_held_by_current_thread(&ft_lock)) {
-            lock_release(&ft_lock);
-          }
+
           sys_exit(-1);
         }
       }
       else {
-        if (lock_held_by_current_thread(&ft_lock)) {
-          lock_release(&ft_lock);
-        }
+
         sys_exit(-1);
       }
     }
-    lock_acquire(&ft_lock);
+
     size_t read_bt = remained_buffer_size > PGSIZE - pg_ofs(buffer_temp) ? PGSIZE - pg_ofs(buffer_temp) : remained_buffer_size;
     struct frame *pin = find_frame_for_vaddr(pg_round_down(buffer_temp));
     pin_user_frame(pin->physical_page);
-    lock_release(&ft_lock);
+
     remained_buffer_size -= read_bt;
     buffer_temp += read_bt;
   }
@@ -341,9 +328,7 @@ int sys_read(int fd, void *buffer, unsigned size, void *esp){
     if(spte != NULL) {
       if(!spte->is_loaded) {
         if (!fault_handler(spte)) {
-          if (lock_held_by_current_thread(&ft_lock)) {
-            lock_release(&ft_lock);
-          }
+
           sys_exit(-1);
         }
       }
@@ -352,24 +337,20 @@ int sys_read(int fd, void *buffer, unsigned size, void *esp){
       uint32_t lowest_stack_addr = PHYS_BASE - 0x800000;
       if ((buffer_temp >= (esp-32)) && (buffer_temp >= lowest_stack_addr)) {
         if (!stack_grow(buffer_temp)) {
-          if (lock_held_by_current_thread(&ft_lock)) {
-            lock_release(&ft_lock);
-          }
+
           sys_exit(-1);
         }
       }
       else {
-        if (lock_held_by_current_thread(&ft_lock)) {
-          lock_release(&ft_lock);
-        }
+
         sys_exit(-1);
       }
     }
-    lock_acquire(&ft_lock);
+
     size_t read_bt = remained_buffer_size > PGSIZE - pg_ofs(buffer_temp) ? PGSIZE - pg_ofs(buffer_temp) : remained_buffer_size;
     struct frame *unpin = find_frame_for_vaddr(pg_round_down(buffer_temp));
     unpin_user_frame(unpin->physical_page);
-    lock_release(&ft_lock);
+
     remained_buffer_size -= read_bt;
     buffer_temp += read_bt;
   }
@@ -393,9 +374,7 @@ int sys_write(int fd, const void *buffer, unsigned size, void *esp){
     if(spte != NULL) {
       if(!spte->is_loaded) {
         if (!fault_handler(spte)) {
-          if (lock_held_by_current_thread(&ft_lock)) {
-            lock_release(&ft_lock);
-          }
+
           sys_exit(-1);
         }
       }
@@ -404,24 +383,20 @@ int sys_write(int fd, const void *buffer, unsigned size, void *esp){
       uint32_t lowest_stack_addr = PHYS_BASE - 0x800000;
       if ((buffer_temp >= (esp-32)) && (buffer_temp >= lowest_stack_addr)) {
         if (!stack_grow(buffer_temp)) {
-          if (lock_held_by_current_thread(&ft_lock)) {
-            lock_release(&ft_lock);
-          }
+
           sys_exit(-1);
         }
       }
       else {
-        if (lock_held_by_current_thread(&ft_lock)) {
-          lock_release(&ft_lock);
-        }
+
         sys_exit(-1);
       }
     }
-    lock_acquire(&ft_lock);
+
     size_t read_bt = remained_buffer_size > PGSIZE - pg_ofs(buffer_temp) ? PGSIZE - pg_ofs(buffer_temp) : remained_buffer_size;
     struct frame *pin = find_frame_for_vaddr(pg_round_down(buffer_temp));
     pin_user_frame(pin->physical_page);
-    lock_release(&ft_lock);
+
     remained_buffer_size -= read_bt;
     buffer_temp += read_bt;
   }
@@ -438,13 +413,14 @@ int sys_write(int fd, const void *buffer, unsigned size, void *esp){
     result = size;
   }
   else {
-    lock_acquire(&file_rw);
+
     struct file *file = thread_current()->pcb->fd_table[fd];
     if (file == NULL) {
-      lock_release(&file_rw);
+
       result = -1;
     }
     else {
+      lock_acquire(&file_rw);
       result = file_write(file, buffer, size);
       lock_release(&file_rw);
     }
@@ -457,9 +433,6 @@ int sys_write(int fd, const void *buffer, unsigned size, void *esp){
     if(spte != NULL) {
       if(!spte->is_loaded) {
         if (!fault_handler(spte)) {
-          if (lock_held_by_current_thread(&ft_lock)) {
-            lock_release(&ft_lock);
-          }
           sys_exit(-1);
         }
       }
@@ -468,24 +441,16 @@ int sys_write(int fd, const void *buffer, unsigned size, void *esp){
       uint32_t lowest_stack_addr = PHYS_BASE - 0x800000;
       if ((buffer_temp >= (esp-32)) && (buffer_temp >= lowest_stack_addr)) {
         if (!stack_grow(buffer_temp)) {
-          if (lock_held_by_current_thread(&ft_lock)) {
-            lock_release(&ft_lock);
-          }
           sys_exit(-1);
         }
       }
       else {
-        if (lock_held_by_current_thread(&ft_lock)) {
-          lock_release(&ft_lock);
-        }
         sys_exit(-1);
       }
     }
-    lock_acquire(&ft_lock);
     size_t read_bt = remained_buffer_size > PGSIZE - pg_ofs(buffer_temp) ? PGSIZE - pg_ofs(buffer_temp) : remained_buffer_size;
     struct frame *unpin = find_frame_for_vaddr(pg_round_down(buffer_temp));
     unpin_user_frame(unpin->physical_page);
-    lock_release(&ft_lock);
     remained_buffer_size -= read_bt;
     buffer_temp += read_bt;
   }
@@ -520,45 +485,46 @@ void sys_close(int fd){
   }
   lock_acquire(&file_rw);
   file_close(file);
+  lock_release(&file_rw);
   this->pcb->fd_table[fd] = NULL;
   for(int i = fd; i < fd_count - 1; i++){
     this->pcb->fd_table[i] = this->pcb->fd_table[i+1];
   }
   this->pcb->fd_count--;
   this->pcb->fd_table[fd_count] = NULL;
-  lock_release(&file_rw);
+  
 }
 
 mapid_t sys_mmap (int fd, void *addr) {
   if(is_kernel_vaddr(addr)) sys_exit(-1);
 
-  if(!addr || pg_ofs(addr) != 0 || (int)addr % PGSIZE != 0) return -1;
+  if(!addr || (int)addr % PGSIZE != 0) return -1;
 
   struct mmap_file *mfe = (struct mmap_file *)malloc(sizeof(struct mmap_file));
   if (mfe == NULL) {
-    free(mfe);
     return -1;
   }   
-	memset(mfe, 0, sizeof(struct mmap_file));
 
   lock_acquire(&file_rw);
   struct file* file = file_reopen(thread_current()->pcb->fd_table[fd]);
+  lock_release(&file_rw);
   int length = file_length(file);
   if (length == 0) {
-    lock_release(&file_rw);
+    
     free(mfe);
     return -1;
   }
-  lock_release(&file_rw);
-  if(spte_find(addr) != NULL) {
-    free(mfe);
-    return -1;
-  }
+  
 	list_init(&mfe->spte_list);
   mfe->file = file;
   off_t ofs = 0;
   
 	while(length > 0) {
+    if(spte_find(addr) != NULL) {
+    free(mfe);
+    return -1;
+    }
+    
     size_t read_bytes = length > PGSIZE ? PGSIZE : length;
     size_t zero_bytes = PGSIZE - read_bytes;
 
@@ -592,15 +558,15 @@ void sys_munmap(mapid_t mapping) {
 
   for(it = list_begin(&mfe->spte_list); it != list_end(&mfe->spte_list);) {
     struct page_entry *spte = list_entry(it, struct page_entry, mmap_elem);
-    if (spte->is_loaded && pagedir_is_dirty(thread_current()->pagedir, spte->vaddr)) {
-      lock_acquire(&file_rw);
-      file_write_at(spte->file, spte->vaddr, spte->read_bytes, spte->offset);
-      lock_release(&file_rw);
-      //lock_acquire(&ft_lock);
+    if (spte->is_loaded) {
+      if(pagedir_is_dirty(thread_current()->pagedir, spte->vaddr)){
+        lock_acquire(&file_rw);
+        file_write_at(spte->file, spte->vaddr, spte->read_bytes, spte->offset);
+        lock_release(&file_rw);
+      }
+      
       free_frame(pagedir_get_page(thread_current()->pagedir, spte->vaddr));
-      //lock_release(&ft_lock);
     }
-    spte->is_loaded = false;
     it = list_remove(it);
     spte_delete(&thread_current()->SPT, spte);
   }

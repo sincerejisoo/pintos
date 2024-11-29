@@ -27,7 +27,9 @@ static bool spt_less_func(const struct hash_elem *a, const struct hash_elem *b, 
     return spte_a->vaddr < spte_b->vaddr;
 }
 
-struct page_entry *spte_create(uint8_t type, void *vaddr, bool writable, bool is_loaded, struct file *file, size_t offset, size_t read_bytes, size_t zero_bytes) {
+struct page_entry *spte_create(uint8_t type, void *vaddr, bool writable, bool is_loaded, 
+    struct file *file, size_t offset, size_t read_bytes, size_t zero_bytes) {
+    
     struct page_entry *spte = (struct page_entry *)malloc(sizeof(struct page_entry));
     if (spte == NULL)
     {
@@ -75,14 +77,12 @@ struct page_entry *spte_find(void *vaddr) {
 
 void spte_destroy_func(struct hash_elem *e, void *aux UNUSED) {
     struct page_entry *spte = hash_entry(e, struct page_entry, elem);
-    //lock_acquire(&ft_lock);
     if(spte){
         if(spte->is_loaded){
             free_frame(pagedir_get_page(thread_current()->pagedir, spte->vaddr));
         }
         free(spte);
     }
-    //lock_release(&ft_lock);
 }
 
 void SPT_destroy(struct hash *SPT) {
