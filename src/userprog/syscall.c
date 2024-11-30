@@ -141,7 +141,7 @@ pid_t sys_exec(const char *file, void *esp){
     if (*it == '\0') break;
     it++;
   }
-  create_spte_and_pin(strlen(file) + 1, (void*) file, esp);
+  //create_spte_and_pin(strlen(file) + 1, (void*) file, esp);
 
   pid_t pid = process_execute(file);
   
@@ -149,7 +149,7 @@ pid_t sys_exec(const char *file, void *esp){
     return -1;
   }
 
-  find_spte_and_unpin(strlen(file) + 1, (void *)file);
+  //find_spte_and_unpin(strlen(file) + 1, (void *)file);
 
   struct pcb *child_pcb = get_child(pid)->pcb;
   if (!child_pcb->is_loaded) return -1;
