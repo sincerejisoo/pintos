@@ -750,8 +750,14 @@ void thread_swap(){
   if (thread_current() == idle_thread) return;
   if (list_empty(&ready_list)) return;
   struct thread *this = thread_current();
-  struct thread *high = list_entry(list_front(&ready_list), struct thread, elem);
-  if (this->priority < high->priority) thread_yield();
+  if (!list_empty(&ready_list)){
+    struct thread *high = list_entry(list_front(&ready_list), struct thread, elem);
+    if (this->priority < high->priority) thread_yield();
+    return;
+  }
+  else{
+    return;
+  }  
 }
 
 bool thread_cmp_don_priority(const struct list_elem *e1, const struct list_elem *e2, void *aux UNUSED){
