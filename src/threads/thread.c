@@ -749,13 +749,19 @@ bool thread_cmp_priority(const struct list_elem *e1, const struct list_elem *e2,
 void thread_swap(){
   if (thread_current() == idle_thread) return;
   if (list_empty(&ready_list)) return;
+
+  enum intr_level _intr_lv;
+  _intr_lv = intr_disable();
+
   struct thread *this = thread_current();
   if (!list_empty(&ready_list)){
     struct thread *high = list_entry(list_front(&ready_list), struct thread, elem);
+    intr_set_level(_intr_lv);
     if (this->priority < high->priority) thread_yield();
     return;
   }
   else{
+    intr_set_level(_intr_lv);
     return;
   }  
 }
