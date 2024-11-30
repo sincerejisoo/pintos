@@ -15,6 +15,8 @@
 #include "vm/frame.h"
 
 static void syscall_handler (struct intr_frame *);
+void create_spte_and_pin(size_t size, void * buffer, void* esp);
+void find_spte_and_unpin(size_t remained_buffer_size, void* buffer_temp);
 struct lock file_rw;
 
 void
@@ -139,56 +141,16 @@ pid_t sys_exec(const char *file, void *esp){
     if (*it == '\0') break;
     it++;
   }
-  size_t remained_buffer_size = strlen(file) + 1;
-  void *buffer_temp = (void *)file;
-  while(remained_buffer_size > 0) {
-    struct page_entry *spte = spte_find(pg_round_down(buffer_temp));
-    if(spte != NULL) {
-      if(!spte->is_loaded) {
-        if (!fault_handler(spte)) {
+  create_spte_and_pin(strlen(file) + 1, (void*) file, esp);
 
-          sys_exit(-1);
-        }
-      }
-    }
-    else {
-      uint32_t lowest_stack_addr = PHYS_BASE - 0x800000;
-      if ((buffer_temp >= (esp-32)) && (buffer_temp >= lowest_stack_addr)) {
-        if (!stack_grow(buffer_temp)) {
-
-          sys_exit(-1);
-        }
-      }
-      else {
-
-        sys_exit(-1);
-      }
-    }
-
-    size_t read_bt = remained_buffer_size > PGSIZE - pg_ofs(buffer_temp) ? PGSIZE - pg_ofs(buffer_temp) : remained_buffer_size;
-    struct frame *pin = find_frame_for_vaddr(pg_round_down(buffer_temp));
-    pin_user_frame(pin->physical_page);
-
-    remained_buffer_size -= read_bt;
-    buffer_temp += read_bt;
-  }
   pid_t pid = process_execute(file);
   
   if(pid == -1){
     return -1;
   }
 
-  remained_buffer_size = strlen(file) + 1;
-  buffer_temp = (void *)file;
-  while(remained_buffer_size > 0) {
+  find_spte_and_unpin(strlen(file) + 1, (void *)file);
 
-    size_t read_bt = remained_buffer_size > PGSIZE - pg_ofs(buffer_temp) ? PGSIZE - pg_ofs(buffer_temp) : remained_buffer_size;
-    struct frame *unpin = find_frame_for_vaddr(pg_round_down(buffer_temp));
-    unpin_user_frame(unpin->physical_page);
-
-    remained_buffer_size -= read_bt;
-    buffer_temp += read_bt;
-  }
   struct pcb *child_pcb = get_child(pid)->pcb;
   if (!child_pcb->is_loaded) return -1;
   return pid;
@@ -258,40 +220,7 @@ int sys_read(int fd, void *buffer, unsigned size, void *esp){
       sys_exit(-1);
     }
   }
-  
-  size_t remained_buffer_size = size;
-  void *buffer_temp = buffer;
-  while(remained_buffer_size > 0) {
-    struct page_entry *spte = spte_find(pg_round_down(buffer_temp));
-    if(spte != NULL) {
-      if(!spte->is_loaded) {
-        if (!fault_handler(spte)) {
-
-          sys_exit(-1);
-        }
-      }
-    }
-    else {
-      uint32_t lowest_stack_addr = PHYS_BASE - 0x800000;
-      if ((buffer_temp >= (esp-32)) && (buffer_temp >= lowest_stack_addr)) {
-        if (!stack_grow(buffer_temp)) {
-
-          sys_exit(-1);
-        }
-      }
-      else {
-
-        sys_exit(-1);
-      }
-    }
-
-    size_t read_bt = remained_buffer_size > PGSIZE - pg_ofs(buffer_temp) ? PGSIZE - pg_ofs(buffer_temp) : remained_buffer_size;
-    struct frame *pin = find_frame_for_vaddr(pg_round_down(buffer_temp));
-    pin_user_frame(pin->physical_page);
-
-    remained_buffer_size -= read_bt;
-    buffer_temp += read_bt;
-  }
+  create_spte_and_pin(size, buffer, esp);
 
   int result = 0;
   int fd_count = thread_current()->pcb->fd_count;
@@ -321,39 +250,7 @@ int sys_read(int fd, void *buffer, unsigned size, void *esp){
     }
   }
 
-  remained_buffer_size = size;
-  buffer_temp = buffer;
-  while(remained_buffer_size > 0) {
-    struct page_entry *spte = spte_find(pg_round_down(buffer_temp));
-    if(spte != NULL) {
-      if(!spte->is_loaded) {
-        if (!fault_handler(spte)) {
-
-          sys_exit(-1);
-        }
-      }
-    }
-    else {
-      uint32_t lowest_stack_addr = PHYS_BASE - 0x800000;
-      if ((buffer_temp >= (esp-32)) && (buffer_temp >= lowest_stack_addr)) {
-        if (!stack_grow(buffer_temp)) {
-
-          sys_exit(-1);
-        }
-      }
-      else {
-
-        sys_exit(-1);
-      }
-    }
-
-    size_t read_bt = remained_buffer_size > PGSIZE - pg_ofs(buffer_temp) ? PGSIZE - pg_ofs(buffer_temp) : remained_buffer_size;
-    struct frame *unpin = find_frame_for_vaddr(pg_round_down(buffer_temp));
-    unpin_user_frame(unpin->physical_page);
-
-    remained_buffer_size -= read_bt;
-    buffer_temp += read_bt;
-  }
+  find_spte_and_unpin(size, buffer);
   return result;
 }
 
@@ -367,39 +264,7 @@ int sys_write(int fd, const void *buffer, unsigned size, void *esp){
     }
   }
 
-  size_t remained_buffer_size = size;
-  void *buffer_temp = buffer;
-  while(remained_buffer_size > 0) {
-    struct page_entry *spte = spte_find(pg_round_down(buffer_temp));
-    if(spte != NULL) {
-      if(!spte->is_loaded) {
-        if (!fault_handler(spte)) {
-
-          sys_exit(-1);
-        }
-      }
-    }
-    else {
-      uint32_t lowest_stack_addr = PHYS_BASE - 0x800000;
-      if ((buffer_temp >= (esp-32)) && (buffer_temp >= lowest_stack_addr)) {
-        if (!stack_grow(buffer_temp)) {
-
-          sys_exit(-1);
-        }
-      }
-      else {
-
-        sys_exit(-1);
-      }
-    }
-
-    size_t read_bt = remained_buffer_size > PGSIZE - pg_ofs(buffer_temp) ? PGSIZE - pg_ofs(buffer_temp) : remained_buffer_size;
-    struct frame *pin = find_frame_for_vaddr(pg_round_down(buffer_temp));
-    pin_user_frame(pin->physical_page);
-
-    remained_buffer_size -= read_bt;
-    buffer_temp += read_bt;
-  }
+  create_spte_and_pin(size, buffer, esp);
 
   int result = 0;
   int fd_count = thread_current()->pcb->fd_count;
@@ -426,34 +291,7 @@ int sys_write(int fd, const void *buffer, unsigned size, void *esp){
     }
   }
 
-  remained_buffer_size = size;
-  buffer_temp = buffer;
-  while(remained_buffer_size > 0) {
-    struct page_entry *spte = spte_find(pg_round_down(buffer_temp));
-    if(spte != NULL) {
-      if(!spte->is_loaded) {
-        if (!fault_handler(spte)) {
-          sys_exit(-1);
-        }
-      }
-    }
-    else {
-      uint32_t lowest_stack_addr = PHYS_BASE - 0x800000;
-      if ((buffer_temp >= (esp-32)) && (buffer_temp >= lowest_stack_addr)) {
-        if (!stack_grow(buffer_temp)) {
-          sys_exit(-1);
-        }
-      }
-      else {
-        sys_exit(-1);
-      }
-    }
-    size_t read_bt = remained_buffer_size > PGSIZE - pg_ofs(buffer_temp) ? PGSIZE - pg_ofs(buffer_temp) : remained_buffer_size;
-    struct frame *unpin = find_frame_for_vaddr(pg_round_down(buffer_temp));
-    unpin_user_frame(unpin->physical_page);
-    remained_buffer_size -= read_bt;
-    buffer_temp += read_bt;
-  }
+  find_spte_and_unpin(size, buffer);
 
   return result;
 }
@@ -572,4 +410,50 @@ void sys_munmap(mapid_t mapping) {
   }
   list_remove(&mfe->elem);
   free(mfe);	
+}
+
+void create_spte_and_pin(size_t remained_buffer_size, void * buffer_temp, void * esp){
+  while(remained_buffer_size > 0) {
+    struct page_entry *spte = spte_find(pg_round_down(buffer_temp));
+    if(spte != NULL) {
+      if(!spte->is_loaded) {
+        if (!fault_handler(spte)) {
+
+          sys_exit(-1);
+        }
+      }
+    }
+    else {
+      uint32_t lowest_stack_addr = PHYS_BASE - 0x800000;
+      if ((buffer_temp >= (esp-32)) && (buffer_temp >= lowest_stack_addr)) {
+        if (!stack_grow(buffer_temp)) {
+
+          sys_exit(-1);
+        }
+      }
+      else {
+
+        sys_exit(-1);
+      }
+    }
+
+    size_t read_bt = remained_buffer_size > PGSIZE - pg_ofs(buffer_temp) ? PGSIZE - pg_ofs(buffer_temp) : remained_buffer_size;
+    struct frame *pin = find_frame_for_vaddr(pg_round_down(buffer_temp));
+    pin_user_frame(pin->physical_page);
+
+    remained_buffer_size -= read_bt;
+    buffer_temp += read_bt;
+  }
+}
+
+void find_spte_and_unpin(size_t remained_buffer_size, void* buffer_temp){
+  while(remained_buffer_size > 0) {
+
+    size_t read_bt = remained_buffer_size > PGSIZE - pg_ofs(buffer_temp) ? PGSIZE - pg_ofs(buffer_temp) : remained_buffer_size;
+    struct frame *unpin = find_frame_for_vaddr(pg_round_down(buffer_temp));
+    unpin_user_frame(unpin->physical_page);
+
+    remained_buffer_size -= read_bt;
+    buffer_temp += read_bt;
+  }
 }
